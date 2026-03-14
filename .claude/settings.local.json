@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(printf 'y\\\\n')",
+      "Bash(npx create-vite@latest . --template react-ts)",
+      "Bash(npm run:*)",
+      "Bash(npx shadcn@latest init --preset aYtf --template vite)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest add button card badge avatar separator tooltip input dropdown-menu)",
+      "Bash(npx shadcn@latest add dialog)",
+      "Bash(npx shadcn@latest add checkbox switch)",
+      "Bash(npx shadcn@latest add sheet --yes)",
+      "Bash(npx shadcn@latest add alert avatar calendar card checkbox dialog label popover progress radio-group skeleton slider switch table tabs textarea toggle tooltip --yes)",
+      "Bash(npx shadcn@latest add alert avatar calendar card dialog label popover progress radio-group skeleton slider table tabs textarea toggle tooltip --yes)",
+      "Bash(npx shadcn@latest add switch --overwrite --yes)",
+      "Bash(npx shadcn@latest add checkbox --overwrite --yes)",
+      "Bash(npx shadcn@latest add calendar --yes)",
+      "Bash(npx shadcn@latest add toast --yes)"
+    ]
+  }
+}
