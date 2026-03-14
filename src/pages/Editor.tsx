@@ -14,14 +14,16 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -347,9 +349,11 @@ function RadiusControl({
 function PaddingControl({
   value,
   onChange,
+  label = 'Padding',
 }: {
   value: PaddingValue
   onChange: (v: PaddingValue) => void
+  label?: string
 }) {
   const [linked, setLinked] = useState(true)
 
@@ -374,7 +378,7 @@ function PaddingControl({
   return (
     <div className="px-4 pt-2 pb-3">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-muted-foreground">Padding</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
         <button
           onClick={() => setLinked(!linked)}
           className={cn(
@@ -1427,6 +1431,733 @@ function TextareaSections({ props, updateProp, paletteColors, globalRadius, onCh
   )
 }
 
+function CheckboxSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const size = (props.size as string) ?? 'default'
+  const shape = (props.shape as string) ?? 'square'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {['sm', 'default', 'lg'].map((s) => (
+              <PillButton key={s} label={s} active={size === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Shape</p>
+          <div className="flex gap-1.5">
+            {['square', 'circle'].map((s) => (
+              <PillButton key={s} label={s} active={shape === s} onClick={() => updateProp('shape', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Label</p>
+          <Input
+            value={(props.label as string) ?? 'Accept terms and conditions'}
+            onChange={(e) => updateProp('label', e.target.value)}
+            className="h-7 text-xs rounded-md"
+          />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Description</p>
+          <Input
+            value={(props.description as string) ?? ''}
+            onChange={(e) => updateProp('description', e.target.value)}
+            className="h-7 text-xs rounded-md"
+            placeholder="Optional description..."
+          />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl
+          label="Checked color"
+          value={(props.checkedColor as string) ?? primaryColor}
+          onChange={(v) => updateProp('checkedColor', v)}
+          paletteColors={paletteColors}
+        />
+        <ColorControl
+          label="Label color"
+          value={(props.labelColor as string) ?? ''}
+          onChange={(v) => updateProp('labelColor', v)}
+          paletteColors={paletteColors}
+        />
+      </InspectorSection>
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Checked</span>
+          <Switch checked={(props.checked as boolean) ?? false} onCheckedChange={(v) => updateProp('checked', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch checked={(props.disabled as boolean) ?? false} onCheckedChange={(v) => updateProp('disabled', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Indeterminate</span>
+          <Switch checked={(props.indeterminate as boolean) ?? false} onCheckedChange={(v) => updateProp('indeterminate', v)} />
+        </div>
+      </InspectorSection>
+    </>
+  )
+}
+
+function DialogSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const size = (props.size as string) ?? 'default'
+  const position = (props.position as string) ?? 'center'
+  const confirmVariant = (props.confirmVariant as string) ?? 'default'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['sm', 'default', 'lg', 'full'].map((s) => (
+              <PillButton key={s} label={s} active={size === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Position</p>
+          <div className="flex gap-1.5">
+            {['center', 'top'].map((p) => (
+              <PillButton key={p} label={p} active={position === p} onClick={() => updateProp('position', p)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Title</p>
+          <Input value={(props.title as string) ?? 'Dialog Title'} onChange={(e) => updateProp('title', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Description</p>
+          <Input value={(props.description as string) ?? 'Dialog description here.'} onChange={(e) => updateProp('description', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show footer</span>
+          <Switch checked={(props.showFooter as boolean) ?? true} onCheckedChange={(v) => updateProp('showFooter', v)} />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Confirm label</p>
+          <Input value={(props.confirmLabel as string) ?? 'Confirm'} onChange={(e) => updateProp('confirmLabel', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Cancel label</p>
+          <Input value={(props.cancelLabel as string) ?? 'Cancel'} onChange={(e) => updateProp('cancelLabel', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Confirm variant</p>
+          <div className="flex gap-1.5">
+            {['default', 'destructive'].map((v) => (
+              <PillButton key={v} label={v} active={confirmVariant === v} onClick={() => updateProp('confirmVariant', v)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Header background" value={(props.headerBg as string) ?? ''} onChange={(v) => updateProp('headerBg', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Dialog radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function DropdownMenuSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const itemCount = (props.itemCount as number) ?? 3
+  const showIcons = (props.showIcons as boolean) ?? false
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Side</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['bottom', 'top', 'left', 'right'].map((s) => (
+              <PillButton key={s} label={s} active={((props.side as string) ?? 'bottom') === s} onClick={() => updateProp('side', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Align</p>
+          <div className="flex gap-1.5">
+            {['start', 'center', 'end'].map((a) => (
+              <PillButton key={a} label={a} active={((props.align as string) ?? 'start') === a} onClick={() => updateProp('align', a)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Item count</p>
+          <div className="flex gap-1.5">
+            {[2, 3, 4, 5].map((n) => (
+              <PillButton key={n} label={String(n)} active={itemCount === n} onClick={() => updateProp('itemCount', n)} />
+            ))}
+          </div>
+        </div>
+        {Array.from({ length: itemCount }, (_, i) => (
+          <div key={i} className="px-4 pt-2 pb-1">
+            <p className="text-xs text-muted-foreground mb-1.5">Item {i + 1} label</p>
+            <Input
+              value={(props[`item${i}Label`] as string) ?? `Item ${i + 1}`}
+              onChange={(e) => updateProp(`item${i}Label`, e.target.value)}
+              className="h-7 text-xs rounded-md"
+            />
+          </div>
+        ))}
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show separator</span>
+          <Switch checked={(props.showSeparator as boolean) ?? false} onCheckedChange={(v) => updateProp('showSeparator', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show icons</span>
+          <Switch checked={showIcons} onCheckedChange={(v) => updateProp('showIcons', v)} />
+        </div>
+        {showIcons && Array.from({ length: itemCount }, (_, i) => (
+          <div key={i} className="flex items-center justify-between px-4 py-1">
+            <span className="text-xs text-muted-foreground">Item {i + 1} icon</span>
+            <IconPicker value={(props[`item${i}Icon`] as string) ?? null} onChange={(v) => updateProp(`item${i}Icon`, v ?? undefined)} placeholder="Pick icon..." />
+          </div>
+        ))}
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show shortcuts</span>
+          <Switch checked={(props.showShortcuts as boolean) ?? false} onCheckedChange={(v) => updateProp('showShortcuts', v)} />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Menu radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function LabelSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const fontWeight = (props.fontWeight as string) ?? 'medium'
+  const letterSpacing = (props.letterSpacing as string) ?? 'normal'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Typography">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Text</p>
+          <Input value={(props.text as string) ?? 'Form label'} onChange={(e) => updateProp('text', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Font size</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[11, 12, 13, 14, 16].map((s) => (
+              <PillButton key={s} label={String(s)} active={((props.fontSize as number) ?? 14) === s} onClick={() => updateProp('fontSize', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Font weight</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['normal', 'medium', 'semibold', 'bold'].map((w) => (
+              <PillButton key={w} label={w} active={fontWeight === w} onClick={() => updateProp('fontWeight', w)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Letter spacing</p>
+          <div className="flex gap-1.5">
+            {['tight', 'normal', 'wide'].map((s) => (
+              <PillButton key={s} label={s} active={letterSpacing === s} onClick={() => updateProp('letterSpacing', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Required</span>
+          <Switch checked={(props.required as boolean) ?? false} onCheckedChange={(v) => updateProp('required', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch checked={(props.disabled as boolean) ?? false} onCheckedChange={(v) => updateProp('disabled', v)} />
+        </div>
+      </InspectorSection>
+    </>
+  )
+}
+
+function PopoverSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Side</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['bottom', 'top', 'left', 'right'].map((s) => (
+              <PillButton key={s} label={s} active={((props.side as string) ?? 'bottom') === s} onClick={() => updateProp('side', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Align</p>
+          <div className="flex gap-1.5">
+            {['start', 'center', 'end'].map((a) => (
+              <PillButton key={a} label={a} active={((props.align as string) ?? 'center') === a} onClick={() => updateProp('align', a)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Width (px)</span>
+          <Input type="number" min={100} max={600} value={(props.width as number) ?? 256} onChange={(e) => updateProp('width', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Title</p>
+          <Input value={(props.title as string) ?? ''} onChange={(e) => updateProp('title', e.target.value)} className="h-7 text-xs rounded-md" placeholder="Optional title..." />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Body text</p>
+          <Input value={(props.content as string) ?? 'Popover content goes here.'} onChange={(e) => updateProp('content', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Border color" value={(props.borderColor as string) ?? ''} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Popover radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function ProgressSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const progressSize = (props.size as string) ?? 'default'
+  const progressStyle = (props.style as string) ?? 'default'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Value</span>
+          <div className="flex items-center gap-2">
+            <Input type="number" min={0} max={100} value={(props.value as number) ?? 60} onChange={(e) => updateProp('value', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+            <span className="text-xs text-muted-foreground w-8">{(props.value as number) ?? 60}%</span>
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {['sm', 'default', 'lg'].map((s) => (
+              <PillButton key={s} label={s} active={progressSize === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Style</p>
+          <div className="flex gap-1.5">
+            {['default', 'striped', 'indeterminate'].map((s) => (
+              <PillButton key={s} label={s} active={progressStyle === s} onClick={() => updateProp('style', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Track color" value={(props.trackColor as string) ?? ''} onChange={(v) => updateProp('trackColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Indicator color" value={(props.indicatorColor as string) ?? primaryColor} onChange={(v) => updateProp('indicatorColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Progress radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function RadioGroupSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const orientation = (props.orientation as string) ?? 'vertical'
+  const optionCount = (props.optionCount as number) ?? 3
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Orientation</p>
+          <div className="flex gap-1.5">
+            {['vertical', 'horizontal'].map((o) => (
+              <PillButton key={o} label={o} active={orientation === o} onClick={() => updateProp('orientation', o)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Option count</p>
+          <div className="flex gap-1.5">
+            {[2, 3, 4].map((n) => (
+              <PillButton key={n} label={String(n)} active={optionCount === n} onClick={() => updateProp('optionCount', n)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        {Array.from({ length: optionCount }, (_, i) => (
+          <div key={i} className="px-4 pt-2 pb-1">
+            <p className="text-xs text-muted-foreground mb-1.5">Option {i + 1} label</p>
+            <Input
+              value={(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
+              onChange={(e) => updateProp(`option${i + 1}Label`, e.target.value)}
+              className="h-7 text-xs rounded-md"
+            />
+          </div>
+        ))}
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Default selected</p>
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: optionCount }, (_, i) => (
+              <PillButton
+                key={i}
+                label={String(i + 1)}
+                active={((props.defaultValue as string) ?? 'option1') === `option${i + 1}`}
+                onClick={() => updateProp('defaultValue', `option${i + 1}`)}
+              />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Selected color" value={(props.selectedColor as string) ?? primaryColor} onChange={(v) => updateProp('selectedColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Label color" value={(props.labelColor as string) ?? ''} onChange={(v) => updateProp('labelColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch checked={(props.disabled as boolean) ?? false} onCheckedChange={(v) => updateProp('disabled', v)} />
+        </div>
+      </InspectorSection>
+    </>
+  )
+}
+
+function SelectSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const selectSize = (props.size as string) ?? 'default'
+  const optionCount = (props.optionCount as number) ?? 3
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Width (px)</span>
+          <Input type="number" min={100} max={500} value={(props.width as number) ?? 200} onChange={(e) => updateProp('width', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {['sm', 'default', 'lg'].map((s) => (
+              <PillButton key={s} label={s} active={selectSize === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Placeholder</p>
+          <Input value={(props.placeholder as string) ?? 'Select option'} onChange={(e) => updateProp('placeholder', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Option count</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[2, 3, 4, 5].map((n) => (
+              <PillButton key={n} label={String(n)} active={optionCount === n} onClick={() => updateProp('optionCount', n)} />
+            ))}
+          </div>
+        </div>
+        {Array.from({ length: optionCount }, (_, i) => (
+          <div key={i} className="px-4 pt-2 pb-1">
+            <p className="text-xs text-muted-foreground mb-1.5">Option {i + 1} label</p>
+            <Input
+              value={(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
+              onChange={(e) => updateProp(`option${i + 1}Label`, e.target.value)}
+              className="h-7 text-xs rounded-md"
+            />
+          </div>
+        ))}
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Border color" value={(props.borderColor as string) ?? ''} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Select radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch checked={(props.disabled as boolean) ?? false} onCheckedChange={(v) => updateProp('disabled', v)} />
+        </div>
+      </InspectorSection>
+    </>
+  )
+}
+
+function SeparatorSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const orientation = (props.orientation as string) ?? 'horizontal'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Orientation</p>
+          <div className="flex gap-1.5">
+            {['horizontal', 'vertical'].map((o) => (
+              <PillButton key={o} label={o} active={orientation === o} onClick={() => updateProp('orientation', o)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Thickness (px)</span>
+          <Input type="number" min={1} max={16} value={(props.thickness as number) ?? 1} onChange={(e) => updateProp('thickness', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Color" value={(props.color as string) ?? ''} onChange={(v) => updateProp('color', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Spacing">
+        <PaddingControl
+          label="Spacing"
+          value={(props.margin as PaddingValue) ?? { top: 16, right: 0, bottom: 16, left: 0 }}
+          onChange={(v) => updateProp('margin', v)}
+        />
+      </InspectorSection>
+    </>
+  )
+}
+
+function SkeletonSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const preset = (props.preset as string) ?? 'text-lines'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Preset</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['text-lines', 'card', 'avatar-row', 'form', 'custom'].map((p) => (
+              <PillButton key={p} label={p} active={preset === p} onClick={() => updateProp('preset', p)} />
+            ))}
+          </div>
+        </div>
+        {preset === 'custom' && (
+          <>
+            <div className="px-4 pt-2 pb-1">
+              <p className="text-xs text-muted-foreground mb-1.5">Line count</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4].map((n) => (
+                  <PillButton key={n} label={String(n)} active={((props.lineCount as number) ?? 3) === n} onClick={() => updateProp('lineCount', n)} />
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-xs text-muted-foreground">Line height (px)</span>
+              <Input type="number" min={8} max={48} value={(props.lineHeight as number) ?? 16} onChange={(e) => updateProp('lineHeight', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+            </div>
+            <div className="px-4 pt-2 pb-2">
+              <p className="text-xs text-muted-foreground mb-1.5">Line width</p>
+              <div className="flex flex-wrap gap-1.5">
+                {['full', '3/4', '1/2', 'random'].map((w) => (
+                  <PillButton key={w} label={w} active={((props.lineWidth as string) ?? 'full') === w} onClick={() => updateProp('lineWidth', w)} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Base color" value={(props.baseColor as string) ?? ''} onChange={(v) => updateProp('baseColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Skeleton radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function SliderSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const orientation = (props.orientation as string) ?? 'horizontal'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Min</span>
+          <Input type="number" value={(props.min as number) ?? 0} onChange={(e) => updateProp('min', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Max</span>
+          <Input type="number" value={(props.max as number) ?? 100} onChange={(e) => updateProp('max', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Step</span>
+          <Input type="number" min={0.01} value={(props.step as number) ?? 1} onChange={(e) => updateProp('step', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Value</span>
+          <Input type="number" value={(props.value as number) ?? 50} onChange={(e) => updateProp('value', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Orientation</p>
+          <div className="flex gap-1.5">
+            {['horizontal', 'vertical'].map((o) => (
+              <PillButton key={o} label={o} active={orientation === o} onClick={() => updateProp('orientation', o)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show value label</span>
+          <Switch checked={(props.showLabel as boolean) ?? false} onCheckedChange={(v) => updateProp('showLabel', v)} />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Track color" value={(props.trackColor as string) ?? ''} onChange={(v) => updateProp('trackColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Range color" value={(props.rangeColor as string) ?? primaryColor} onChange={(v) => updateProp('rangeColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Thumb color" value={(props.thumbColor as string) ?? ''} onChange={(v) => updateProp('thumbColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch checked={(props.disabled as boolean) ?? false} onCheckedChange={(v) => updateProp('disabled', v)} />
+        </div>
+      </InspectorSection>
+    </>
+  )
+}
+
+function ToggleSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const variant = (props.variant as string) ?? 'default'
+  const toggleSize = (props.size as string) ?? 'default'
+  const iconPosition = (props.iconPosition as string) ?? 'leading'
+  const showIcon = (props.showIcon as boolean) ?? false
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
+          <div className="flex gap-1.5">
+            {['default', 'outline'].map((v) => (
+              <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {['sm', 'default', 'lg'].map((s) => (
+              <PillButton key={s} label={s} active={toggleSize === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Pressed</span>
+          <Switch checked={(props.pressed as boolean) ?? false} onCheckedChange={(v) => updateProp('pressed', v)} />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Label</p>
+          <Input value={(props.label as string) ?? 'Toggle'} onChange={(e) => updateProp('label', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show icon</span>
+          <Switch checked={showIcon} onCheckedChange={(v) => updateProp('showIcon', v)} />
+        </div>
+        {showIcon && (
+          <>
+            <div className="flex items-center justify-between px-4 py-1">
+              <span className="text-xs text-muted-foreground">Icon</span>
+              <IconPicker value={(props.icon as string) ?? null} onChange={(v) => updateProp('icon', v ?? undefined)} placeholder="Pick icon..." />
+            </div>
+            <div className="px-4 pt-2 pb-2">
+              <p className="text-xs text-muted-foreground mb-1.5">Icon position</p>
+              <div className="flex gap-1.5">
+                {['leading', 'trailing', 'only'].map((p) => (
+                  <PillButton key={p} label={p} active={iconPosition === p} onClick={() => updateProp('iconPosition', p)} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Active background" value={(props.activeColor as string) ?? primaryColor} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Active text" value={(props.activeTextColor as string) ?? ''} onChange={(v) => updateProp('activeTextColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Inactive background" value={(props.inactiveColor as string) ?? ''} onChange={(v) => updateProp('inactiveColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch checked={(props.disabled as boolean) ?? false} onCheckedChange={(v) => updateProp('disabled', v)} />
+        </div>
+      </InspectorSection>
+    </>
+  )
+}
+
+function TooltipSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Side</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['top', 'right', 'bottom', 'left'].map((s) => (
+              <PillButton key={s} label={s} active={((props.side as string) ?? 'top') === s} onClick={() => updateProp('side', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Delay (ms)</span>
+          <Input type="number" min={0} max={2000} step={50} value={(props.delayDuration as number) ?? 200} onChange={(e) => updateProp('delayDuration', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Arrow</span>
+          <Switch checked={(props.arrow as boolean) ?? false} onCheckedChange={(v) => updateProp('arrow', v)} />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Trigger label</p>
+          <Input value={(props.triggerLabel as string) ?? 'Hover me'} onChange={(e) => updateProp('triggerLabel', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Tooltip text</p>
+          <Input value={(props.content as string) ?? 'Tooltip content'} onChange={(e) => updateProp('content', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Tooltip radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
 // ─── Inspector router ─────────────────────────────────────────────────────────
 
 function Inspector({
@@ -1445,6 +2176,19 @@ function Inspector({
   if (component === 'Tabs') return <TabsSections {...shared} />
   if (component === 'Table') return <TableSections {...shared} />
   if (component === 'Textarea') return <TextareaSections {...shared} />
+  if (component === 'Checkbox') return <CheckboxSections {...shared} />
+  if (component === 'Dialog') return <DialogSections {...shared} />
+  if (component === 'Dropdown Menu') return <DropdownMenuSections {...shared} />
+  if (component === 'Label') return <LabelSections {...shared} />
+  if (component === 'Popover') return <PopoverSections {...shared} />
+  if (component === 'Progress') return <ProgressSections {...shared} />
+  if (component === 'Radio Group') return <RadioGroupSections {...shared} />
+  if (component === 'Select') return <SelectSections {...shared} />
+  if (component === 'Separator') return <SeparatorSections {...shared} />
+  if (component === 'Skeleton') return <SkeletonSections {...shared} />
+  if (component === 'Slider') return <SliderSections {...shared} />
+  if (component === 'Toggle') return <ToggleSections {...shared} />
+  if (component === 'Tooltip') return <TooltipSections {...shared} />
 
   return (
     <>
@@ -1477,6 +2221,67 @@ function SheetPreview({ props }: { props: ComponentProps }) {
       </Sheet>
       <p className="text-xs text-muted-foreground">Click button to preview</p>
     </div>
+  )
+}
+
+function DialogPreview({ props, globalRadius }: { props: ComponentProps; globalRadius: number }) {
+  const [open, setOpen] = useState(false)
+  const sizeMap: Record<string, string> = { sm: 'max-w-sm', default: 'max-w-lg', lg: 'max-w-2xl', full: 'max-w-full' }
+  const sizeClass = sizeMap[(props.size as string) ?? 'default'] ?? 'max-w-lg'
+  const isTop = (props.position as string) === 'top'
+  const radius = props.borderRadius !== undefined ? `${props.borderRadius}px` : `${globalRadius}px`
+  const showFooter = (props.showFooter as boolean) ?? true
+  const confirmVariant = ((props.confirmVariant as string) ?? 'default') as 'default' | 'destructive'
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <Button variant="outline" onClick={() => setOpen(true)}>Open Dialog</Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className={cn(sizeClass, isTop && 'top-16 translate-y-0')}
+          style={{ backgroundColor: (props.bgColor as string) || undefined, borderRadius: radius }}
+        >
+          <DialogHeader style={props.headerBg ? { backgroundColor: props.headerBg as string, margin: '-1.5rem -1.5rem 0', padding: '1.5rem', borderRadius: `${radius} ${radius} 0 0` } : {}}>
+            <DialogTitle>{(props.title as string) ?? 'Dialog Title'}</DialogTitle>
+            <DialogDescription>{(props.description as string) ?? 'Dialog description here.'}</DialogDescription>
+          </DialogHeader>
+          {showFooter && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>{(props.cancelLabel as string) ?? 'Cancel'}</Button>
+              <Button variant={confirmVariant} onClick={() => setOpen(false)}>{(props.confirmLabel as string) ?? 'Confirm'}</Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+      <p className="text-xs text-muted-foreground">Click button to preview</p>
+    </div>
+  )
+}
+
+function PopoverPreview({ props, globalRadius }: { props: ComponentProps; globalRadius: number }) {
+  const [open, setOpen] = useState(false)
+  const side = ((props.side as string) ?? 'bottom') as 'top' | 'right' | 'bottom' | 'left'
+  const align = ((props.align as string) ?? 'center') as 'start' | 'center' | 'end'
+  const width = (props.width as number) ?? 256
+  const radius = props.borderRadius !== undefined ? `${props.borderRadius}px` : `${globalRadius}px`
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline">Open Popover</Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side={side}
+        align={align}
+        style={{
+          width: `${width}px`,
+          backgroundColor: (props.bgColor as string) || undefined,
+          borderColor: (props.borderColor as string) || undefined,
+          borderRadius: radius,
+        }}
+      >
+        {(props.title as string) && <p className="font-medium text-sm mb-1">{props.title as string}</p>}
+        <p className="text-sm text-muted-foreground">{(props.content as string) ?? 'Popover content goes here.'}</p>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -1668,47 +2473,76 @@ function ComponentPreview({
   }
 
   if (name === 'Checkbox') {
-    const checked = (props.checked as boolean) ?? false
+    const cbSize = (props.size as string) ?? 'default'
+    const cbShape = (props.shape as string) ?? 'square'
+    const isIndeterminate = (props.indeterminate as boolean) ?? false
+    const isChecked = (props.checked as boolean) ?? false
+    const checkedValue = isIndeterminate ? ('indeterminate' as const) : isChecked
+    const sizeClass = cbSize === 'sm' ? 'h-3.5 w-3.5' : cbSize === 'lg' ? 'h-6 w-6' : 'h-4 w-4'
+    const checkedColor = (props.checkedColor as string) || undefined
+    const labelColor = (props.labelColor as string) || undefined
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-3">
         <Checkbox
           id="cb-preview"
-          checked={checked}
-          onCheckedChange={(v) => updateProp('checked', v as boolean)}
+          checked={checkedValue}
+          disabled={(props.disabled as boolean) ?? false}
+          onCheckedChange={(v) => updateProp('checked', !!v)}
+          className={cn(sizeClass, cbShape === 'circle' && 'rounded-full', checkedColor && 'checkbox-colored')}
+          style={checkedColor ? { '--checkbox-color': checkedColor } as React.CSSProperties : {}}
         />
-        <Label htmlFor="cb-preview" className="text-sm cursor-pointer">
-          {(props.label as string) ?? 'Accept terms and conditions'}
-        </Label>
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="cb-preview" className="text-sm cursor-pointer" style={labelColor ? { color: labelColor } : {}}>
+            {(props.label as string) ?? 'Accept terms and conditions'}
+          </Label>
+          {(props.description as string) && (
+            <p className="text-xs text-muted-foreground">{props.description as string}</p>
+          )}
+        </div>
       </div>
     )
   }
 
   if (name === 'Dialog') {
-    return (
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="outline">Open Dialog</Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Dialog Title</DialogTitle>
-            <DialogDescription>This is the dialog description. Add your content here.</DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
-    )
+    return <DialogPreview props={props} globalRadius={globalRadius} />
   }
 
   if (name === 'Dropdown Menu') {
+    const dmItemCount = (props.itemCount as number) ?? 3
+    const dmSide = ((props.side as string) ?? 'bottom') as 'top' | 'right' | 'bottom' | 'left'
+    const dmAlign = ((props.align as string) ?? 'start') as 'start' | 'center' | 'end'
+    const dmShowSep = (props.showSeparator as boolean) ?? false
+    const dmShowIcons = (props.showIcons as boolean) ?? false
+    const dmShowShortcuts = (props.showShortcuts as boolean) ?? false
+    const shortcuts = ['⌘K', '⌘S', '⌘D', '⌘E', '⌘R']
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline">Open Menu</Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem>Profile</DropdownMenuItem>
-          <DropdownMenuItem>Settings</DropdownMenuItem>
-          <DropdownMenuItem>Logout</DropdownMenuItem>
+        <DropdownMenuContent
+          side={dmSide}
+          align={dmAlign}
+          style={{
+            backgroundColor: (props.bgColor as string) || undefined,
+            color: (props.textColor as string) || undefined,
+            borderRadius: radius,
+          }}
+        >
+          {Array.from({ length: dmItemCount }, (_, i) => {
+            const itemIcon = dmShowIcons ? (props[`item${i}Icon`] as string) ?? null : null
+            const ItemIcon = itemIcon ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[itemIcon] ?? null : null
+            return (
+              <span key={i}>
+                {dmShowSep && i === 1 && <DropdownMenuSeparator />}
+                <DropdownMenuItem>
+                  {ItemIcon && <ItemIcon size={14} className="mr-2 shrink-0" />}
+                  {(props[`item${i}Label`] as string) ?? `Item ${i + 1}`}
+                  {dmShowShortcuts && <DropdownMenuShortcut>{shortcuts[i] ?? `⌘${i + 1}`}</DropdownMenuShortcut>}
+                </DropdownMenuItem>
+              </span>
+            )
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
     )
@@ -1744,68 +2578,128 @@ function ComponentPreview({
   }
 
   if (name === 'Label') {
-    return <Label className="text-sm">{(props.text as string) ?? 'Form label'}</Label>
-  }
-
-  if (name === 'Popover') {
+    const fontWeightMap: Record<string, string> = { normal: '400', medium: '500', semibold: '600', bold: '700' }
+    const letterSpacingMap: Record<string, string> = { tight: '-0.025em', normal: '0em', wide: '0.05em' }
+    const isDisabled = (props.disabled as boolean) ?? false
     return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline">Open Popover</Button>
-        </PopoverTrigger>
-        <PopoverContent>
-          <p className="text-sm">{(props.content as string) ?? 'Popover content goes here.'}</p>
-        </PopoverContent>
-      </Popover>
+      <Label
+        className={cn('text-sm', isDisabled && 'opacity-50 cursor-not-allowed')}
+        style={{
+          fontSize: `${(props.fontSize as number) ?? 14}px`,
+          fontWeight: fontWeightMap[(props.fontWeight as string) ?? 'medium'] ?? '500',
+          letterSpacing: letterSpacingMap[(props.letterSpacing as string) ?? 'normal'] ?? '0em',
+          color: (props.textColor as string) || undefined,
+        }}
+      >
+        {(props.text as string) ?? 'Form label'}
+        {(props.required as boolean) && <span className="text-destructive ml-0.5">*</span>}
+      </Label>
     )
   }
 
+  if (name === 'Popover') {
+    return <PopoverPreview props={props} globalRadius={globalRadius} />
+  }
+
   if (name === 'Progress') {
-    return <Progress value={Number(props.value ?? 60)} className="w-[280px]" />
+    const progressVal = Math.min(100, Math.max(0, (props.value as number) ?? 60))
+    const progressSize = (props.size as string) ?? 'default'
+    const progressStyle = (props.style as string) ?? 'default'
+    const sizeClass = progressSize === 'sm' ? 'h-1.5' : progressSize === 'lg' ? 'h-4' : 'h-2.5'
+    const indicatorColor = (props.indicatorColor as string) || undefined
+    const trackColor = (props.trackColor as string) || undefined
+    const progressRadius = props.borderRadius !== undefined ? `${props.borderRadius}px` : radius
+    return (
+      <div
+        className="w-[280px]"
+        style={indicatorColor ? { '--progress-indicator': indicatorColor } as React.CSSProperties : {}}
+      >
+        <Progress
+          value={progressStyle === 'indeterminate' ? undefined : progressVal}
+          className={cn(sizeClass, 'w-full', indicatorColor && 'progress-colored', progressStyle === 'indeterminate' && 'animate-pulse')}
+          style={{ backgroundColor: trackColor, borderRadius: progressRadius }}
+        />
+      </div>
+    )
   }
 
   if (name === 'Radio Group') {
+    const rgOrientation = (props.orientation as string) ?? 'vertical'
+    const rgOptionCount = (props.optionCount as number) ?? 3
+    const rgDefaultValue = (props.defaultValue as string) ?? 'option1'
+    const rgDisabled = (props.disabled as boolean) ?? false
+    const labelColor = (props.labelColor as string) || undefined
     return (
-      <RadioGroup defaultValue="option1">
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="option1" id="r1" />
-          <Label htmlFor="r1">Option 1</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="option2" id="r2" />
-          <Label htmlFor="r2">Option 2</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="option3" id="r3" />
-          <Label htmlFor="r3">Option 3</Label>
-        </div>
+      <RadioGroup
+        defaultValue={rgDefaultValue}
+        disabled={rgDisabled}
+        className={cn(rgOrientation === 'horizontal' ? 'flex flex-row gap-4' : 'flex flex-col gap-2')}
+      >
+        {Array.from({ length: rgOptionCount }, (_, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <RadioGroupItem value={`option${i + 1}`} id={`rg-${i}`} />
+            <Label htmlFor={`rg-${i}`} className="text-sm cursor-pointer" style={labelColor ? { color: labelColor } : {}}>
+              {(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
+            </Label>
+          </div>
+        ))}
       </RadioGroup>
     )
   }
 
   if (name === 'Select') {
+    const selectWidth = (props.width as number) ?? 200
+    const selectSize = (props.size as string) ?? 'default'
+    const selectOptionCount = (props.optionCount as number) ?? 3
+    const sizeClass = selectSize === 'sm' ? 'h-8' : selectSize === 'lg' ? 'h-12' : 'h-10'
+    const selectRadius = props.borderRadius !== undefined ? `${props.borderRadius}px` : radius
     return (
-      <Select>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Select an option" />
+      <Select disabled={(props.disabled as boolean) ?? false}>
+        <SelectTrigger
+          className={sizeClass}
+          style={{
+            width: `${selectWidth}px`,
+            backgroundColor: (props.bgColor as string) || undefined,
+            borderColor: (props.borderColor as string) || undefined,
+            color: (props.textColor as string) || undefined,
+            borderRadius: selectRadius,
+          }}
+        >
+          <SelectValue placeholder={(props.placeholder as string) ?? 'Select option'} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="opt1">Option 1</SelectItem>
-          <SelectItem value="opt2">Option 2</SelectItem>
-          <SelectItem value="opt3">Option 3</SelectItem>
+          {Array.from({ length: selectOptionCount }, (_, i) => (
+            <SelectItem key={i} value={`opt${i + 1}`}>
+              {(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     )
   }
 
   if (name === 'Separator') {
-    const orientation = (props.orientation as 'horizontal' | 'vertical') ?? 'horizontal'
-    return orientation === 'vertical' ? (
-      <div className="flex h-20 items-center">
-        <Separator orientation="vertical" />
+    const sepOrientation = (props.orientation as 'horizontal' | 'vertical') ?? 'horizontal'
+    const sepThickness = (props.thickness as number) ?? 1
+    const sepColor = (props.color as string) || undefined
+    const sepMargin = props.margin as PaddingValue | undefined
+    const sepStyle: React.CSSProperties = {
+      backgroundColor: sepColor,
+      ...(sepOrientation === 'horizontal' ? { height: `${sepThickness}px` } : { width: `${sepThickness}px` }),
+      ...(sepMargin ? { marginTop: `${sepMargin.top}px`, marginRight: `${sepMargin.right}px`, marginBottom: `${sepMargin.bottom}px`, marginLeft: `${sepMargin.left}px` } : {}),
+    }
+    return sepOrientation === 'vertical' ? (
+      <div className="flex h-28 items-stretch gap-6">
+        <p className="text-sm text-muted-foreground self-center">Section above</p>
+        <Separator orientation="vertical" style={sepStyle} />
+        <p className="text-sm text-muted-foreground self-center">Section below</p>
       </div>
     ) : (
-      <Separator className="w-[280px]" />
+      <div className="flex flex-col w-[280px]">
+        <p className="text-sm text-muted-foreground">Section above</p>
+        <Separator style={sepStyle} />
+        <p className="text-sm text-muted-foreground">Section below</p>
+      </div>
     )
   }
 
@@ -1814,26 +2708,86 @@ function ComponentPreview({
   }
 
   if (name === 'Skeleton') {
+    const skPreset = (props.preset as string) ?? 'text-lines'
+    const skStyle = (props.baseColor as string) ? { backgroundColor: props.baseColor as string } : undefined
+    const skRadius = props.borderRadius !== undefined ? `${props.borderRadius}px` : undefined
+    const mkSk = (cls: string, extraStyle?: React.CSSProperties) => (
+      <Skeleton className={cls} style={{ ...skStyle, ...(skRadius ? { borderRadius: skRadius } : {}), ...extraStyle }} />
+    )
+    if (skPreset === 'card') {
+      return (
+        <div className="flex flex-col gap-3 w-[240px]">
+          {mkSk('h-32 w-full rounded-lg')}
+          {mkSk('h-4 w-full')}
+          {mkSk('h-4 w-3/4')}
+        </div>
+      )
+    }
+    if (skPreset === 'avatar-row') {
+      return (
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-full shrink-0" style={skStyle} />
+          <div className="flex flex-col gap-2 flex-1">
+            {mkSk('h-3.5 w-3/4')}
+            {mkSk('h-3.5 w-1/2')}
+          </div>
+        </div>
+      )
+    }
+    if (skPreset === 'form') {
+      return (
+        <div className="flex flex-col gap-3 w-[240px]">
+          {mkSk('h-3.5 w-1/3')}
+          {mkSk('h-9 w-full')}
+          {mkSk('h-3.5 w-1/3')}
+          {mkSk('h-9 w-full')}
+        </div>
+      )
+    }
+    if (skPreset === 'custom') {
+      const lineCount = (props.lineCount as number) ?? 3
+      const lineHeight = (props.lineHeight as number) ?? 16
+      const lineWidth = (props.lineWidth as string) ?? 'full'
+      const widthOptions = ['w-full', 'w-3/4', 'w-1/2']
+      return (
+        <div className="flex flex-col gap-2 w-[240px]">
+          {Array.from({ length: lineCount }, (_, i) => {
+            const wCls = lineWidth === 'random' ? widthOptions[i % widthOptions.length] : lineWidth === 'full' ? 'w-full' : lineWidth === '3/4' ? 'w-3/4' : 'w-1/2'
+            return mkSk(wCls, { height: `${lineHeight}px` })
+          })}
+        </div>
+      )
+    }
     return (
       <div className="flex flex-col gap-2">
-        <Skeleton className="h-4 w-[250px]" />
-        <Skeleton className="h-4 w-[200px]" />
-        <Skeleton className="h-4 w-[150px]" />
+        {mkSk('h-4 w-[250px]')}
+        {mkSk('h-4 w-[200px]')}
+        {mkSk('h-4 w-[150px]')}
       </div>
     )
   }
 
   if (name === 'Slider') {
-    const value = Number(props.value ?? 50)
+    const sliderVal = Number(props.value ?? 50)
+    const sliderMin = (props.min as number) ?? 0
+    const sliderMax = (props.max as number) ?? 100
+    const sliderStep = (props.step as number) ?? 1
+    const isVertical = (props.orientation as string) === 'vertical'
+    const showLabel = (props.showLabel as boolean) ?? false
     return (
-      <Slider
-        value={[value]}
-        onValueChange={(v) => updateProp('value', v[0])}
-        min={0}
-        max={100}
-        step={1}
-        className="w-[280px]"
-      />
+      <div className={cn('flex', isVertical ? 'flex-row gap-3 items-start' : 'flex-col gap-2 items-start')}>
+        {showLabel && <span className="text-sm font-mono">{sliderVal}</span>}
+        <Slider
+          value={[sliderVal]}
+          onValueChange={(v) => updateProp('value', v[0])}
+          min={sliderMin}
+          max={sliderMax}
+          step={sliderStep}
+          disabled={(props.disabled as boolean) ?? false}
+          orientation={isVertical ? 'vertical' : 'horizontal'}
+          className={isVertical ? 'h-40' : 'w-[280px]'}
+        />
+      </div>
     )
   }
 
@@ -2004,27 +2958,54 @@ function ComponentPreview({
   }
 
   if (name === 'Toggle') {
+    const toggleVariant = ((props.variant as string) ?? 'default') as 'default' | 'outline'
+    const toggleSize = ((props.size as string) ?? 'default') as 'default' | 'sm' | 'lg'
+    const isPressed = (props.pressed as boolean) ?? false
+    const showIcon = (props.showIcon as boolean) ?? false
+    const iconPosition = (props.iconPosition as string) ?? 'leading'
+    const ToggleIcon = showIcon && props.icon
+      ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props.icon as string] ?? null
+      : null
     return (
       <Toggle
-        pressed={(props.pressed as boolean) ?? false}
+        pressed={isPressed}
         onPressedChange={(v) => updateProp('pressed', v)}
-        variant="outline"
+        variant={toggleVariant}
+        size={toggleSize}
+        disabled={(props.disabled as boolean) ?? false}
+        style={{
+          backgroundColor: isPressed ? (props.activeColor as string) || undefined : (props.inactiveColor as string) || undefined,
+          color: isPressed ? (props.activeTextColor as string) || undefined : undefined,
+        }}
       >
-        {(props.label as string) ?? 'Bold'}
+        {showIcon && ToggleIcon && iconPosition !== 'trailing' && <ToggleIcon size={16} />}
+        {iconPosition !== 'only' && ((props.label as string) ?? 'Toggle')}
+        {showIcon && ToggleIcon && iconPosition === 'trailing' && <ToggleIcon size={16} />}
       </Toggle>
     )
   }
 
   if (name === 'Tooltip') {
+    const tooltipSide = ((props.side as string) ?? 'top') as 'top' | 'right' | 'bottom' | 'left'
+    const tooltipRadius = props.borderRadius !== undefined ? `${props.borderRadius}px` : radius
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="outline">Hover me</Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{(props.content as string) ?? 'Tooltip content'}</p>
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider delayDuration={(props.delayDuration as number) ?? 200}>
+        <Tooltip defaultOpen>
+          <TooltipTrigger asChild>
+            <Button variant="outline">{(props.triggerLabel as string) ?? 'Hover me'}</Button>
+          </TooltipTrigger>
+          <TooltipContent
+            side={tooltipSide}
+            style={{
+              backgroundColor: (props.bgColor as string) || undefined,
+              color: (props.textColor as string) || undefined,
+              borderRadius: tooltipRadius,
+            }}
+          >
+            <p>{(props.content as string) ?? 'Tooltip content'}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 

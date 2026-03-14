@@ -149,6 +149,15 @@
   background-color: var(--switch-color, hsl(var(--primary))) !important;
 }
 
+.checkbox-colored[data-state="checked"] {
+  background-color: var(--checkbox-color) !important;
+  border-color: var(--checkbox-color) !important;
+}
+
+.progress-colored > div {
+  background-color: var(--progress-indicator) !important;
+}
+
 .canvas-grid {
   background-color: #f8f8f8;
   background-image: radial-gradient(circle, #d4d4d4 1px, transparent 1px);
