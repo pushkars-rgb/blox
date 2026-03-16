@@ -21,7 +21,8 @@
       "Bash(grep -n \"name === ''Table''\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
       "Bash(grep -n \"|| ''hsl\\(var\\(\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
       "Bash(sort -t: -k1,1)",
-      "Bash(awk 'NR>=2669 && NR<=3670' /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)"
+      "Bash(awk 'NR>=2669 && NR<=3670' /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

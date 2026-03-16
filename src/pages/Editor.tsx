@@ -94,7 +94,7 @@ import {
 import { cn } from '@/lib/utils'
 import ColorPicker from '@/components/ColorPicker'
 import { type Project } from '@/data/projects'
-import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Loader2, Minus, Plus } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -147,6 +147,87 @@ const COMPONENTS = [
   'Radio Group', 'Select', 'Separator', 'Sheet', 'Sidebar', 'Skeleton', 'Slider',
   'Switch', 'Table', 'Tabs', 'Textarea', 'Toast', 'Toggle', 'Tooltip',
 ]
+
+// ─── Component variants ──────────────────────────────────────────────────────
+// Maps each component to its primary variant dimension for variants preview mode.
+// Components not listed here (Table, Charts, Calendar, Sidebar, etc.) fall back
+// to single preview. Values must be valid prop values for that component.
+
+const COMPONENT_VARIANTS: Record<string, { prop: string; values: (string | boolean | number)[] }> = {
+  Alert:          { prop: 'variant',        values: ['default', 'destructive'] },
+  Avatar:         { prop: 'size',           values: ['sm', 'default', 'lg', 'xl'] },
+  Badge:          { prop: 'variant',        values: ['default', 'secondary', 'outline', 'destructive'] },
+  Breadcrumb:     { prop: 'separatorStyle', values: ['slash', 'chevron', 'dot'] },
+  Button:         { prop: 'variant',        values: ['default', 'secondary', 'outline', 'ghost', 'link', 'destructive'] },
+  Progress:       { prop: 'size',           values: ['sm', 'default', 'lg'] },
+  'Radio Group':  { prop: 'orientation',    values: ['vertical', 'horizontal'] },
+  Select:         { prop: 'size',           values: ['sm', 'default', 'lg'] },
+  Separator:      { prop: 'orientation',    values: ['horizontal', 'vertical'] },
+  Skeleton:       { prop: 'preset',         values: ['text-lines', 'card', 'avatar-row', 'form'] },
+  Switch:         { prop: 'checked',        values: [false, true] },
+  Tabs:           { prop: 'variant',        values: ['default', 'underline', 'pill', 'bordered'] },
+  Toggle:         { prop: 'variant',        values: ['default', 'outline'] },
+  Tooltip:        { prop: 'side',           values: ['top', 'right', 'bottom', 'left'] },
+}
+
+// ─── Component States ─────────────────────────────────────────────────────────
+// Maps component names to a list of interaction states. Each state overrides
+// specific props to simulate how the component looks in that state.
+
+type StateEntry = { label: string; propsOverride: Partial<ComponentProps> }
+
+const COMPONENT_STATES: Record<string, StateEntry[]> = {
+  Button: [
+    { label: 'Default',  propsOverride: {} },
+    { label: 'Disabled', propsOverride: { disabled: true } },
+    { label: 'Loading',  propsOverride: { loading: true } },
+    { label: 'Destructive', propsOverride: { variant: 'destructive' } },
+    { label: 'Ghost',    propsOverride: { variant: 'ghost' } },
+    { label: 'Outline',  propsOverride: { variant: 'outline' } },
+  ],
+  Badge: [
+    { label: 'Default',     propsOverride: { variant: 'default' } },
+    { label: 'Secondary',   propsOverride: { variant: 'secondary' } },
+    { label: 'Outline',     propsOverride: { variant: 'outline' } },
+    { label: 'Destructive', propsOverride: { variant: 'destructive' } },
+  ],
+  Toggle: [
+    { label: 'Off',          propsOverride: { pressed: false, variant: 'default' } },
+    { label: 'On',           propsOverride: { pressed: true,  variant: 'default' } },
+    { label: 'Outline Off',  propsOverride: { pressed: false, variant: 'outline' } },
+    { label: 'Outline On',   propsOverride: { pressed: true,  variant: 'outline' } },
+  ],
+  Switch: [
+    { label: 'Off',           propsOverride: { checked: false } },
+    { label: 'On',            propsOverride: { checked: true } },
+    { label: 'Off / Disabled', propsOverride: { checked: false, disabled: true } },
+    { label: 'On / Disabled',  propsOverride: { checked: true,  disabled: true } },
+  ],
+  Checkbox: [
+    { label: 'Unchecked',     propsOverride: { checked: false, indeterminate: false } },
+    { label: 'Checked',       propsOverride: { checked: true,  indeterminate: false } },
+    { label: 'Indeterminate', propsOverride: { checked: false, indeterminate: true  } },
+    { label: 'Disabled',      propsOverride: { checked: false, disabled: true } },
+    { label: 'Checked / Disabled', propsOverride: { checked: true, disabled: true } },
+  ],
+  'Radio Group': [
+    { label: 'Option A selected', propsOverride: { defaultValue: 'option-a' } },
+    { label: 'Option B selected', propsOverride: { defaultValue: 'option-b' } },
+    { label: 'Horizontal',        propsOverride: { orientation: 'horizontal' } },
+  ],
+  Select: [
+    { label: 'Default', propsOverride: {} },
+    { label: 'Small',   propsOverride: { size: 'sm' } },
+    { label: 'Large',   propsOverride: { size: 'lg' } },
+    { label: 'Disabled', propsOverride: { disabled: true } },
+  ],
+  Tabs: [
+    { label: 'Default',   propsOverride: { variant: 'default' } },
+    { label: 'Underline', propsOverride: { variant: 'underline' } },
+    { label: 'Pill',      propsOverride: { variant: 'pill' } },
+    { label: 'Bordered',  propsOverride: { variant: 'bordered' } },
+  ],
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -3667,6 +3748,77 @@ function ComponentPreview({
   return null
 }
 
+// ─── Variants preview ────────────────────────────────────────────────────────
+
+function VariantsPreview({
+  name,
+  props,
+  globalRadius,
+}: {
+  name: string
+  props: ComponentProps
+  globalRadius: number
+}) {
+  const config = COMPONENT_VARIANTS[name]
+
+  // No variants config → fall back to nothing (caller shows single preview)
+  if (!config) return null
+
+  // Noop: variant previews must not mutate inspector state
+  const noop: UpdateProp = () => {}
+
+  return (
+    <div className="flex flex-wrap gap-10 justify-center p-10 w-full">
+      {config.values.map((value) => (
+        <div key={String(value)} className="flex flex-col items-center gap-3">
+          <span className="text-[11px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+            {String(value)}
+          </span>
+          <ComponentPreview
+            name={name}
+            props={{ ...props, [config.prop]: value }}
+            updateProp={noop}
+            globalRadius={globalRadius}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── States preview ───────────────────────────────────────────────────────────
+
+function StatesPreview({
+  name,
+  props,
+  globalRadius,
+}: {
+  name: string
+  props: ComponentProps
+  globalRadius: number
+}) {
+  const states = COMPONENT_STATES[name]
+  if (!states) return null
+  const noop: UpdateProp = () => {}
+  return (
+    <div className="flex flex-wrap gap-10 justify-center p-10 w-full">
+      {states.map((state) => (
+        <div key={state.label} className="flex flex-col items-center gap-3">
+          <span className="text-[11px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+            {state.label}
+          </span>
+          <ComponentPreview
+            name={name}
+            props={{ ...props, ...state.propsOverride }}
+            updateProp={noop}
+            globalRadius={globalRadius}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Export Sheet ─────────────────────────────────────────────────────────────
 
 function ExportSheet({
@@ -3674,16 +3826,33 @@ function ExportSheet({
   onOpenChange,
   component,
   props,
+  globalRadius,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   component: string
   props: ComponentProps
+  globalRadius: number
 }) {
   const [copiedFull, setCopiedFull] = useState(false)
   const [copiedUsage, setCopiedUsage] = useState(false)
 
   const { full, usage } = generateTSX(component, props)
+
+  // ── Design system health checks ──────────────────────────────────────────
+  const hasCustomRadius  = typeof props.borderRadius === 'number'
+  const radiusOk         = !hasCustomRadius || (props.borderRadius as number) === globalRadius
+  const colorOverrides   = ['bgColor', 'textColor', 'borderColor'].filter(k => !!props[k])
+  const tokensOk         = colorOverrides.length === 0
+  const variantsOk       = !!COMPONENT_VARIANTS[component]
+  const contentFields    = ['label', 'title', 'description', 'placeholder']
+  const contentOk        = contentFields.every(f => !Object.prototype.hasOwnProperty.call(props, f) || !!(props[f] as string)?.trim())
+  const healthChecks: { label: string; pass: boolean; note?: string }[] = [
+    { label: 'Radius consistent with global radius', pass: radiusOk,   note: radiusOk ? undefined : `Custom radius ${props.borderRadius}px — global is ${globalRadius}px` },
+    { label: 'No inline color overrides',            pass: tokensOk,   note: tokensOk ? undefined : `Overridden: ${colorOverrides.join(', ')}` },
+    { label: 'Variant coverage available',           pass: variantsOk, note: variantsOk ? undefined : 'No variants registered for this component' },
+    { label: 'Required content fields filled',       pass: contentOk,  note: contentOk ? undefined : 'One or more text fields are empty' },
+  ]
 
   function copyFull() {
     navigator.clipboard.writeText(full)
@@ -3729,6 +3898,27 @@ function ExportSheet({
             <Button size="sm" variant="outline" onClick={copyUsage}>
               {copiedUsage ? 'Copied!' : 'Copy usage'}
             </Button>
+          </div>
+
+          <div className="mt-6 pt-5 border-t border-border">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Design System Health</p>
+            <div className="flex flex-col gap-2">
+              {healthChecks.map((check) => (
+                <div key={check.label} className="flex items-start gap-2">
+                  <span className={cn('text-xs font-mono mt-px shrink-0', check.pass ? 'text-green-600 dark:text-green-400' : 'text-amber-500')}>
+                    {check.pass ? '✓' : '!'}
+                  </span>
+                  <div className="min-w-0">
+                    <span className={cn('text-xs', check.pass ? 'text-foreground/70' : 'text-foreground')}>
+                      {check.label}
+                    </span>
+                    {!check.pass && check.note && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{check.note}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </ScrollArea>
 
@@ -3782,6 +3972,8 @@ export default function Editor() {
     }
   })
   const [searchQuery, setSearchQuery] = useState('')
+  const [previewMode, setPreviewMode] = useState<'single' | 'variants' | 'states'>('single')
+  const [zoomLevel, setZoomLevel] = useState(100)
   const [exportOpen, setExportOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
   const [activeThemeId, setActiveThemeId] = useState(projectId ?? '')
@@ -3824,6 +4016,16 @@ export default function Editor() {
       },
     }))
   }
+
+  // Reset to single preview when switching components
+  useEffect(() => {
+    setPreviewMode('single')
+    setZoomLevel(100)
+  }, [selectedComponent])
+
+  const ZOOM_STEPS = [75, 100, 125, 150]
+  const zoomIn  = () => setZoomLevel(z => ZOOM_STEPS[Math.min(ZOOM_STEPS.indexOf(z) + 1, ZOOM_STEPS.length - 1)] ?? z)
+  const zoomOut = () => setZoomLevel(z => ZOOM_STEPS[Math.max(ZOOM_STEPS.indexOf(z) - 1, 0)] ?? z)
 
   const filteredComponents = COMPONENTS.filter((c) =>
     c.toLowerCase().includes(searchQuery.toLowerCase())
@@ -3967,7 +4169,7 @@ export default function Editor() {
         <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 48px)' }}>
 
           {/* ── Left panel ── */}
-          <aside className="w-[240px] border-r border-border flex flex-col h-full">
+          <aside className="w-[260px] border-r border-border flex flex-col h-full">
             <p className="px-3 pt-5 pb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground shrink-0">
               Components
             </p>
@@ -3999,16 +4201,92 @@ export default function Editor() {
           </aside>
 
           {/* ── Canvas ── */}
-          <main className="flex-1 flex items-center justify-center overflow-hidden relative canvas-grid">
+          <main className={cn(
+            'flex-1 relative bg-background',
+            previewMode === 'variants' || previewMode === 'states'
+              ? 'overflow-y-auto'
+              : 'overflow-hidden flex items-center justify-center',
+          )}>
+            {/* Floating preview controls — top-right */}
+            {selectedComponent && (
+              <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
+                <span className="text-[11px] text-muted-foreground/50 font-mono select-none">
+                  {previewMode === 'single' && 'Configured component'}
+                  {previewMode === 'variants' && COMPONENT_VARIANTS[selectedComponent] && (
+                    <>{COMPONENT_VARIANTS[selectedComponent].values.length} variants</>
+                  )}
+                  {previewMode === 'states' && COMPONENT_STATES[selectedComponent] && (
+                    <>{COMPONENT_STATES[selectedComponent].length} states</>
+                  )}
+                </span>
+                {(COMPONENT_VARIANTS[selectedComponent] || COMPONENT_STATES[selectedComponent]) && (
+                  <div className="flex items-center rounded-lg border border-border bg-background/80 backdrop-blur-sm shadow-sm overflow-hidden text-xs">
+                    {(
+                      [
+                        'single',
+                        ...(COMPONENT_VARIANTS[selectedComponent] ? ['variants'] : []),
+                        ...(COMPONENT_STATES[selectedComponent]  ? ['states']   : []),
+                      ] as ('single' | 'variants' | 'states')[]
+                    ).map((mode, i) => (
+                      <button
+                        key={mode}
+                        onClick={() => setPreviewMode(mode)}
+                        className={cn(
+                          'px-3 py-1.5 capitalize cursor-pointer transition-colors',
+                          i > 0 && 'border-l border-border',
+                          previewMode === mode
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Safe area + zoom wrapper */}
             {selectedComponent ? (
-              <ComponentPreview
-                name={selectedComponent}
-                props={currentProps}
-                updateProp={updateProp}
-                globalRadius={projectSettings.globalRadius}
-              />
+              <div className={cn(
+                'w-full p-12',
+                previewMode === 'variants' || previewMode === 'states'
+                  ? 'min-h-full flex items-center justify-center'
+                  : 'h-full flex items-center justify-center',
+              )}>
+                <div
+                  style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'center center' }}
+                  className={cn(
+                    previewMode === 'variants' || previewMode === 'states'
+                      ? 'w-full'
+                      : '',
+                  )}
+                >
+                  {previewMode === 'variants' && COMPONENT_VARIANTS[selectedComponent] ? (
+                    <VariantsPreview
+                      name={selectedComponent}
+                      props={currentProps}
+                      globalRadius={projectSettings.globalRadius}
+                    />
+                  ) : previewMode === 'states' && COMPONENT_STATES[selectedComponent] ? (
+                    <StatesPreview
+                      name={selectedComponent}
+                      props={currentProps}
+                      globalRadius={projectSettings.globalRadius}
+                    />
+                  ) : (
+                    <ComponentPreview
+                      name={selectedComponent}
+                      props={currentProps}
+                      updateProp={updateProp}
+                      globalRadius={projectSettings.globalRadius}
+                    />
+                  )}
+                </div>
+              </div>
             ) : (
-              <div className="flex flex-col items-center gap-3 text-center">
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                 <LayoutGrid size={40} strokeWidth={1} className="text-muted-foreground/25" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground/60">No component selected</p>
@@ -4016,21 +4294,56 @@ export default function Editor() {
                 </div>
               </div>
             )}
+
+            {/* Floating zoom controls — bottom-right, outside safe area */}
+            {selectedComponent && (
+              <div className="absolute bottom-4 right-4 z-10 flex items-center gap-px rounded-md border border-border bg-background/90 backdrop-blur-sm overflow-hidden">
+                <button
+                  onClick={zoomOut}
+                  disabled={zoomLevel === ZOOM_STEPS[0]}
+                  className="flex items-center justify-center w-7 h-7 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Minus size={12} />
+                </button>
+                <span className="text-[11px] font-mono text-muted-foreground px-1.5 tabular-nums min-w-[36px] text-center select-none">
+                  {zoomLevel}%
+                </span>
+                <button
+                  onClick={zoomIn}
+                  disabled={zoomLevel === ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+                  className="flex items-center justify-center w-7 h-7 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+            )}
           </main>
 
           {/* ── Right panel — Inspector ── */}
-          <aside className="flex w-[280px] shrink-0 flex-col border-l border-border bg-background overflow-hidden">
+          <aside className="flex w-[320px] shrink-0 flex-col border-l border-border bg-background overflow-hidden">
             {/* Sticky header */}
             <div className="shrink-0 border-b border-border/40 px-4 pt-4 pb-3">
-              <p className={cn(
-                'text-sm font-semibold',
-                selectedComponent ? 'text-foreground' : 'text-muted-foreground',
-              )}>
-                {selectedComponent ?? 'Inspector'}
-              </p>
-              {selectedComponent && (
-                <p className="text-xs text-muted-foreground mt-0.5">{selectedComponent} component</p>
-              )}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className={cn(
+                    'text-sm font-semibold',
+                    selectedComponent ? 'text-foreground' : 'text-muted-foreground',
+                  )}>
+                    {selectedComponent ?? 'Inspector'}
+                  </p>
+                  {selectedComponent && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{selectedComponent} component</p>
+                  )}
+                </div>
+                {selectedComponent && (
+                  <button
+                    onClick={() => setAllComponentProps(prev => ({ ...prev, [selectedComponent]: {} }))}
+                    className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground cursor-pointer transition-colors shrink-0 mt-0.5"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -4062,6 +4375,7 @@ export default function Editor() {
           onOpenChange={setExportOpen}
           component={selectedComponent}
           props={currentProps}
+          globalRadius={projectSettings.globalRadius}
         />
       )}
     </TooltipProvider>
