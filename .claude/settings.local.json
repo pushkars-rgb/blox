@@ -16,7 +16,8 @@
       "Bash(npx shadcn@latest add switch --overwrite --yes)",
       "Bash(npx shadcn@latest add checkbox --overwrite --yes)",
       "Bash(npx shadcn@latest add calendar --yes)",
-      "Bash(npx shadcn@latest add toast --yes)"
+      "Bash(npx shadcn@latest add toast --yes)",
+      "Bash(npx shadcn@latest add breadcrumb --yes)"
     ]
   }
 }

@@ -241,8 +241,8 @@ export default function ColorPicker({ value, onChange, paletteColors, noGradient
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="w-7 h-7 rounded-md border border-border cursor-pointer shrink-0 shadow-sm"
-          style={{ background: displayValue }}
+          className="w-7 h-7 rounded-md border border-border cursor-pointer shrink-0"
+          style={{ background: displayValue, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
         />
       </PopoverTrigger>
 
@@ -402,10 +402,10 @@ export default function ColorPicker({ value, onChange, paletteColors, noGradient
                 key={color}
                 onClick={() => handlePalettePick(color)}
                 className={cn(
-                  'w-5 h-5 rounded-sm border border-border cursor-pointer transition-all',
+                  'w-5 h-5 rounded-sm cursor-pointer transition-all',
                   value === color && 'ring-2 ring-offset-1 ring-foreground',
                 )}
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: color, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
               />
             ))}
           </div>

@@ -1,11 +1,20 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useProjectTokens } from '@/hooks/useProjectTokens'
+import { useProjectTokens, injectTokens } from '@/hooks/useProjectTokens'
 import * as LucideIcons from 'lucide-react'
 import IconPicker from '@/components/IconPicker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,10 +77,24 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  Legend,
+  LineChart,
+  Line,
+  Area,
+  AreaChart,
+} from 'recharts'
 import { cn } from '@/lib/utils'
 import ColorPicker from '@/components/ColorPicker'
 import { type Project } from '@/data/projects'
-import { ChevronDown, ChevronLeft, Download, LayoutGrid, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Loader2 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -93,12 +116,32 @@ const defaultPadding: PaddingValue = { top: 8, right: 16, bottom: 8, left: 16 }
 
 type LucideIconComp = React.ComponentType<{ size?: number; className?: string }>
 
+// ─── Theme presets ────────────────────────────────────────────────────────────
+
+const SHADCN_PRESETS = [
+  { name: 'Default',  primary: '#18181b', colors: ['#18181b', '#71717a', '#e4e4e7'] },
+  { name: 'Zinc',     primary: '#3f3f46', colors: ['#3f3f46', '#71717a', '#d4d4d8'] },
+  { name: 'Slate',    primary: '#1e293b', colors: ['#1e293b', '#64748b', '#cbd5e1'] },
+  { name: 'Stone',    primary: '#1c1917', colors: ['#1c1917', '#78716c', '#d6d3d1'] },
+  { name: 'Blue',     primary: '#2563eb', colors: ['#2563eb', '#3b82f6', '#93c5fd'] },
+  { name: 'Violet',   primary: '#7c3aed', colors: ['#7c3aed', '#8b5cf6', '#c4b5fd'] },
+  { name: 'Rose',     primary: '#e11d48', colors: ['#e11d48', '#f43f5e', '#fda4af'] },
+  { name: 'Orange',   primary: '#ea580c', colors: ['#ea580c', '#f97316', '#fdba74'] },
+  { name: 'Green',    primary: '#16a34a', colors: ['#16a34a', '#22c55e', '#86efac'] },
+]
+
+// ─── CSS var helpers ─────────────────────────────────────────────────────────
+
+const CSS_PRIMARY = 'hsl(var(--primary))'
+const CSS_PRIMARY_FG = 'hsl(var(--primary-foreground))'
+
 // ─── Component list ───────────────────────────────────────────────────────────
 
 const COMPONENTS = [
-  'Alert', 'Avatar', 'Badge', 'Button', 'Calendar', 'Card', 'Checkbox',
-  'Dialog', 'Dropdown Menu', 'Input', 'Label', 'Popover', 'Progress',
-  'Radio Group', 'Select', 'Separator', 'Sheet', 'Skeleton', 'Slider',
+  'Alert', 'Avatar', 'Badge', 'Bar Chart', 'Breadcrumb', 'Button', 'Button Group',
+  'Calendar', 'Card', 'Checkbox',
+  'Dialog', 'Dropdown Menu', 'Input', 'Label', 'Line Chart', 'Popover', 'Progress',
+  'Radio Group', 'Select', 'Separator', 'Sheet', 'Sidebar', 'Skeleton', 'Slider',
   'Switch', 'Table', 'Tabs', 'Textarea', 'Toast', 'Toggle', 'Tooltip',
 ]
 
@@ -2158,6 +2201,332 @@ function TooltipSections({ props, updateProp, paletteColors, globalRadius, onCha
   )
 }
 
+function BreadcrumbSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const itemCount = (props.itemCount as number) ?? 3
+  const sepStyle = (props.separatorStyle as string) ?? 'slash'
+  const fontSize = (props.fontSize as number) ?? 14
+  const fontWeight = (props.fontWeight as string) ?? 'medium'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Separator style</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['slash', 'chevron', 'dot', 'arrow'].map((s) => (
+              <PillButton key={s} label={s} active={sepStyle === s} onClick={() => updateProp('separatorStyle', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Item count</p>
+          <div className="flex gap-1.5">
+            {[2, 3, 4, 5].map((n) => (
+              <PillButton key={n} label={String(n)} active={itemCount === n} onClick={() => updateProp('itemCount', n)} />
+            ))}
+          </div>
+        </div>
+        {Array.from({ length: itemCount }, (_, i) => (
+          <div key={i} className="px-4 pt-2 pb-1">
+            <p className="text-xs text-muted-foreground mb-1.5">Item {i + 1} label</p>
+            <Input
+              value={(props[`item${i}Label`] as string) ?? (['Home', 'Projects', 'Current Page', 'Details', 'Edit'][i] ?? `Item ${i + 1}`)}
+              onChange={(e) => updateProp(`item${i}Label`, e.target.value)}
+              className="h-7 text-xs rounded-md"
+            />
+          </div>
+        ))}
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Max visible</span>
+          <Input type="number" min={2} max={10} value={(props.maxVisible as number) ?? 99} onChange={(e) => updateProp('maxVisible', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Typography">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Font size</p>
+          <div className="flex gap-1.5">
+            {[12, 13, 14, 16].map((s) => (
+              <PillButton key={s} label={String(s)} active={fontSize === s} onClick={() => updateProp('fontSize', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Font weight (active)</p>
+          <div className="flex gap-1.5">
+            {['normal', 'medium', 'semibold'].map((w) => (
+              <PillButton key={w} label={w} active={fontWeight === w} onClick={() => updateProp('fontWeight', w)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Link color" value={(props.linkColor as string) ?? primaryColor} onChange={(v) => updateProp('linkColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Active page color" value={(props.activeColor as string) ?? ''} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Separator color" value={(props.separatorColor as string) ?? ''} onChange={(v) => updateProp('separatorColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Container radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function ButtonGroupSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const buttonCount = (props.buttonCount as number) ?? 3
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Button count</p>
+          <div className="flex gap-1.5">
+            {[2, 3, 4, 5].map((n) => (
+              <PillButton key={n} label={String(n)} active={buttonCount === n} onClick={() => updateProp('buttonCount', n)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Icon only</span>
+          <Switch checked={(props.iconOnly as boolean) ?? false} onCheckedChange={(v) => updateProp('iconOnly', v)} />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {['sm', 'default', 'lg'].map((s) => (
+              <PillButton key={s} label={s} active={((props.size as string) ?? 'default') === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        {Array.from({ length: buttonCount }, (_, i) => (
+          <div key={i} className="px-4 pt-2 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Button {i + 1}</p>
+            <Input
+              value={(props[`btn${i}Label`] as string) ?? `Option ${i + 1}`}
+              onChange={(e) => updateProp(`btn${i}Label`, e.target.value)}
+              className="h-7 text-xs rounded-md mb-1.5"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Icon</span>
+              <IconPicker
+                value={(props[`btn${i}Icon`] as string) ?? null}
+                onChange={(v) => updateProp(`btn${i}Icon`, v ?? undefined)}
+                placeholder="Add icon..."
+              />
+            </div>
+          </div>
+        ))}
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Active background" value={(props.activeColor as string) ?? primaryColor} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Active text" value={(props.activeTextColor as string) ?? ''} onChange={(v) => updateProp('activeTextColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Inactive background" value={(props.inactiveColor as string) ?? ''} onChange={(v) => updateProp('inactiveColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Border color" value={(props.borderColor as string) ?? ''} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Group radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function SidebarComponentSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const itemCount = (props.itemCount as number) ?? 4
+  const sidebarStyle = (props.style as string) ?? 'default'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Width (px)</span>
+          <Input type="number" min={48} max={400} value={(props.width as number) ?? 220} onChange={(e) => updateProp('width', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Collapsed</span>
+          <Switch checked={(props.collapsed as boolean) ?? false} onCheckedChange={(v) => updateProp('collapsed', v)} />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Style</p>
+          <div className="flex gap-1.5">
+            {['default', 'floating', 'inset'].map((s) => (
+              <PillButton key={s} label={s} active={sidebarStyle === s} onClick={() => updateProp('style', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">App name</p>
+          <Input value={(props.appName as string) ?? 'Blox'} onChange={(e) => updateProp('appName', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Item count</p>
+          <div className="flex gap-1.5">
+            {[3, 4, 5, 6].map((n) => (
+              <PillButton key={n} label={String(n)} active={itemCount === n} onClick={() => updateProp('itemCount', n)} />
+            ))}
+          </div>
+        </div>
+        {Array.from({ length: itemCount }, (_, i) => (
+          <div key={i} className="px-4 pt-2 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Item {i + 1}</p>
+            <Input
+              value={(props[`item${i}Label`] as string) ?? (['Dashboard', 'Projects', 'Components', 'Settings', 'Analytics', 'Help'][i] ?? `Item ${i + 1}`)}
+              onChange={(e) => updateProp(`item${i}Label`, e.target.value)}
+              className="h-7 text-xs rounded-md mb-1.5"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Icon</span>
+              <IconPicker
+                value={(props[`item${i}Icon`] as string) ?? null}
+                onChange={(v) => updateProp(`item${i}Icon`, v ?? undefined)}
+                placeholder="Add icon..."
+              />
+            </div>
+          </div>
+        ))}
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Active item color" value={(props.activeColor as string) ?? primaryColor} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Border color" value={(props.borderColor as string) ?? ''} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl label="Item radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function BarChartSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const showSecondSeries = (props.showSecondSeries as boolean) ?? false
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Layout</p>
+          <div className="flex gap-1.5">
+            {['vertical', 'horizontal'].map((l) => (
+              <PillButton key={l} label={l} active={((props.layout as string) ?? 'vertical') === l} onClick={() => updateProp('layout', l)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Bar radius</span>
+          <Input type="number" min={0} max={20} value={(props.barRadius as number) ?? 4} onChange={(e) => updateProp('barRadius', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show grid</span>
+          <Switch checked={(props.showGrid as boolean) ?? false} onCheckedChange={(v) => updateProp('showGrid', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show tooltip</span>
+          <Switch checked={(props.showTooltip as boolean) ?? true} onCheckedChange={(v) => updateProp('showTooltip', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show legend</span>
+          <Switch checked={(props.showLegend as boolean) ?? false} onCheckedChange={(v) => updateProp('showLegend', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show second series</span>
+          <Switch checked={showSecondSeries} onCheckedChange={(v) => updateProp('showSecondSeries', v)} />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Series">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Series 1 label</p>
+          <Input value={(props.series1Label as string) ?? 'Series 1'} onChange={(e) => updateProp('series1Label', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        {showSecondSeries && (
+          <div className="px-4 pt-2 pb-1">
+            <p className="text-xs text-muted-foreground mb-1.5">Series 2 label</p>
+            <Input value={(props.series2Label as string) ?? 'Series 2'} onChange={(e) => updateProp('series2Label', e.target.value)} className="h-7 text-xs rounded-md" />
+          </div>
+        )}
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Bar color" value={(props.barColor as string) ?? primaryColor} onChange={(v) => updateProp('barColor', v)} paletteColors={paletteColors} />
+        {showSecondSeries && (
+          <ColorControl label="Bar 2 color" value={(props.bar2Color as string) ?? ''} onChange={(v) => updateProp('bar2Color', v)} paletteColors={paletteColors} />
+        )}
+        <ColorControl label="Grid color" value={(props.gridColor as string) ?? ''} onChange={(v) => updateProp('gridColor', v)} paletteColors={paletteColors} />
+        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+    </>
+  )
+}
+
+function LineChartSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const showSecondSeries = (props.showSecondSeries as boolean) ?? false
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Appearance">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Filled</span>
+          <Switch checked={(props.filled as boolean) ?? false} onCheckedChange={(v) => updateProp('filled', v)} />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Curve</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['monotone', 'linear', 'step', 'natural'].map((c) => (
+              <PillButton key={c} label={c} active={((props.curve as string) ?? 'monotone') === c} onClick={() => updateProp('curve', c)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Stroke width</span>
+          <Input type="number" min={1} max={4} value={(props.strokeWidth as number) ?? 2} onChange={(e) => updateProp('strokeWidth', Number(e.target.value))} className="w-16 h-7 text-xs text-right" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show dots</span>
+          <Switch checked={(props.showDots as boolean) ?? false} onCheckedChange={(v) => updateProp('showDots', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show grid</span>
+          <Switch checked={(props.showGrid as boolean) ?? false} onCheckedChange={(v) => updateProp('showGrid', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show tooltip</span>
+          <Switch checked={(props.showTooltip as boolean) ?? true} onCheckedChange={(v) => updateProp('showTooltip', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show legend</span>
+          <Switch checked={(props.showLegend as boolean) ?? false} onCheckedChange={(v) => updateProp('showLegend', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show second series</span>
+          <Switch checked={showSecondSeries} onCheckedChange={(v) => updateProp('showSecondSeries', v)} />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Series">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Series 1 label</p>
+          <Input value={(props.series1Label as string) ?? 'Series 1'} onChange={(e) => updateProp('series1Label', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        {showSecondSeries && (
+          <div className="px-4 pt-2 pb-1">
+            <p className="text-xs text-muted-foreground mb-1.5">Series 2 label</p>
+            <Input value={(props.series2Label as string) ?? 'Series 2'} onChange={(e) => updateProp('series2Label', e.target.value)} className="h-7 text-xs rounded-md" />
+          </div>
+        )}
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        <ColorControl label="Line color" value={(props.lineColor as string) ?? primaryColor} onChange={(v) => updateProp('lineColor', v)} paletteColors={paletteColors} />
+        {showSecondSeries && (
+          <ColorControl label="Line 2 color" value={(props.line2Color as string) ?? ''} onChange={(v) => updateProp('line2Color', v)} paletteColors={paletteColors} />
+        )}
+        <ColorControl label="Grid color" value={(props.gridColor as string) ?? ''} onChange={(v) => updateProp('gridColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+    </>
+  )
+}
+
 // ─── Inspector router ─────────────────────────────────────────────────────────
 
 function Inspector({
@@ -2189,6 +2558,11 @@ function Inspector({
   if (component === 'Slider') return <SliderSections {...shared} />
   if (component === 'Toggle') return <ToggleSections {...shared} />
   if (component === 'Tooltip') return <TooltipSections {...shared} />
+  if (component === 'Bar Chart') return <BarChartSections {...shared} />
+  if (component === 'Breadcrumb') return <BreadcrumbSections {...shared} />
+  if (component === 'Button Group') return <ButtonGroupSections {...shared} />
+  if (component === 'Line Chart') return <LineChartSections {...shared} />
+  if (component === 'Sidebar') return <SidebarComponentSections {...shared} />
 
   return (
     <>
@@ -2238,7 +2612,7 @@ function DialogPreview({ props, globalRadius }: { props: ComponentProps; globalR
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           className={cn(sizeClass, isTop && 'top-16 translate-y-0')}
-          style={{ backgroundColor: (props.bgColor as string) || undefined, borderRadius: radius }}
+          style={{ backgroundColor: (props.bgColor as string) || 'hsl(var(--background))', borderRadius: radius }}
         >
           <DialogHeader style={props.headerBg ? { backgroundColor: props.headerBg as string, margin: '-1.5rem -1.5rem 0', padding: '1.5rem', borderRadius: `${radius} ${radius} 0 0` } : {}}>
             <DialogTitle>{(props.title as string) ?? 'Dialog Title'}</DialogTitle>
@@ -2273,7 +2647,7 @@ function PopoverPreview({ props, globalRadius }: { props: ComponentProps; global
         align={align}
         style={{
           width: `${width}px`,
-          backgroundColor: (props.bgColor as string) || undefined,
+          backgroundColor: (props.bgColor as string) || 'hsl(var(--popover))',
           borderColor: (props.borderColor as string) || undefined,
           borderRadius: radius,
         }}
@@ -2337,7 +2711,7 @@ function ComponentPreview({
         {avType === 'image' && (
           <AvatarImage src={(props.imageUrl as string) ?? 'https://github.com/shadcn.png'} alt="Avatar" />
         )}
-        <AvatarFallback className={shapeClass} style={{ backgroundColor: props.bgColor as string | undefined, color: props.textColor as string | undefined }}>
+        <AvatarFallback className={shapeClass} style={{ backgroundColor: (props.bgColor as string) ?? CSS_PRIMARY, color: (props.textColor as string) ?? CSS_PRIMARY_FG }}>
           {avType === 'icon' && AvatarFallbackIcon
             ? <AvatarFallbackIcon size={iconSize} />
             : ((props.fallback as string) ?? 'AB')
@@ -2356,8 +2730,8 @@ function ComponentPreview({
       <Badge
         variant={(props.variant as BadgeVariant) ?? 'default'}
         style={{
-          backgroundColor: props.bgColor as string | undefined,
-          color: props.textColor as string | undefined,
+          backgroundColor: (props.bgColor as string) || 'hsl(var(--primary))',
+          color: (props.textColor as string) || 'hsl(var(--primary-foreground))',
           borderRadius: radius,
           fontSize: props.fontSize ? `${props.fontSize}px` : undefined,
           fontWeight: props.fontWeight as string | undefined,
@@ -2450,8 +2824,8 @@ function ComponentPreview({
       <Card
         className="w-[320px]"
         style={{
-          backgroundColor: props.bgColor as string | undefined,
-          borderColor: props.borderColor as string | undefined,
+          backgroundColor: (props.bgColor as string) ?? 'hsl(var(--card))',
+          borderColor: (props.borderColor as string) ?? 'hsl(var(--border))',
           borderRadius: radius,
           boxShadow: shadowValue(props.shadow as string | undefined),
           borderWidth: props.strokeWidth ? `${props.strokeWidth}px` : undefined,
@@ -2524,8 +2898,8 @@ function ComponentPreview({
           side={dmSide}
           align={dmAlign}
           style={{
-            backgroundColor: (props.bgColor as string) || undefined,
-            color: (props.textColor as string) || undefined,
+            backgroundColor: (props.bgColor as string) || 'hsl(var(--popover))',
+            color: (props.textColor as string) || 'hsl(var(--popover-foreground))',
             borderRadius: radius,
           }}
         >
@@ -2558,7 +2932,8 @@ function ComponentPreview({
           disabled={(props.disabled as boolean) ?? false}
           className={cn('w-[280px]', hasError && 'border-destructive')}
           style={{
-            backgroundColor: props.bgColor as string | undefined,
+            backgroundColor: (props.bgColor as string) ?? 'hsl(var(--background))',
+            color: (props.textColor as string) ?? 'hsl(var(--foreground))',
             borderColor: hasError ? undefined : props.borderColor as string | undefined,
             borderRadius: radius,
             borderWidth: props.strokeWidth ? `${props.strokeWidth}px` : undefined,
@@ -2588,7 +2963,7 @@ function ComponentPreview({
           fontSize: `${(props.fontSize as number) ?? 14}px`,
           fontWeight: fontWeightMap[(props.fontWeight as string) ?? 'medium'] ?? '500',
           letterSpacing: letterSpacingMap[(props.letterSpacing as string) ?? 'normal'] ?? '0em',
-          color: (props.textColor as string) || undefined,
+          color: (props.textColor as string) || 'hsl(var(--foreground))',
         }}
       >
         {(props.text as string) ?? 'Form label'}
@@ -2606,17 +2981,17 @@ function ComponentPreview({
     const progressSize = (props.size as string) ?? 'default'
     const progressStyle = (props.style as string) ?? 'default'
     const sizeClass = progressSize === 'sm' ? 'h-1.5' : progressSize === 'lg' ? 'h-4' : 'h-2.5'
-    const indicatorColor = (props.indicatorColor as string) || undefined
+    const indicatorColor = (props.indicatorColor as string) || 'hsl(var(--primary))'
     const trackColor = (props.trackColor as string) || undefined
     const progressRadius = props.borderRadius !== undefined ? `${props.borderRadius}px` : radius
     return (
       <div
         className="w-[280px]"
-        style={indicatorColor ? { '--progress-indicator': indicatorColor } as React.CSSProperties : {}}
+        style={{ '--progress-indicator': indicatorColor } as React.CSSProperties}
       >
         <Progress
           value={progressStyle === 'indeterminate' ? undefined : progressVal}
-          className={cn(sizeClass, 'w-full', indicatorColor && 'progress-colored', progressStyle === 'indeterminate' && 'animate-pulse')}
+          className={cn(sizeClass, 'w-full progress-colored', progressStyle === 'indeterminate' && 'animate-pulse')}
           style={{ backgroundColor: trackColor, borderRadius: progressRadius }}
         />
       </div>
@@ -2626,24 +3001,26 @@ function ComponentPreview({
   if (name === 'Radio Group') {
     const rgOrientation = (props.orientation as string) ?? 'vertical'
     const rgOptionCount = (props.optionCount as number) ?? 3
-    const rgDefaultValue = (props.defaultValue as string) ?? 'option1'
     const rgDisabled = (props.disabled as boolean) ?? false
     const labelColor = (props.labelColor as string) || undefined
     return (
-      <RadioGroup
-        defaultValue={rgDefaultValue}
-        disabled={rgDisabled}
-        className={cn(rgOrientation === 'horizontal' ? 'flex flex-row gap-4' : 'flex flex-col gap-2')}
-      >
-        {Array.from({ length: rgOptionCount }, (_, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <RadioGroupItem value={`option${i + 1}`} id={`rg-${i}`} />
-            <Label htmlFor={`rg-${i}`} className="text-sm cursor-pointer" style={labelColor ? { color: labelColor } : {}}>
-              {(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
-            </Label>
-          </div>
-        ))}
-      </RadioGroup>
+      <div className="flex items-center justify-center w-full">
+        <RadioGroup
+          value={(props.defaultValue as string) ?? 'option1'}
+          onValueChange={(v) => updateProp('defaultValue', v)}
+          disabled={rgDisabled}
+          className={cn(rgOrientation === 'horizontal' ? 'flex flex-row gap-4' : 'flex flex-col gap-2')}
+        >
+          {Array.from({ length: rgOptionCount }, (_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <RadioGroupItem value={`option${i + 1}`} id={`rg-${i}`} />
+              <Label htmlFor={`rg-${i}`} className="text-sm cursor-pointer" style={labelColor ? { color: labelColor } : {}}>
+                {(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
     )
   }
 
@@ -2654,27 +3031,29 @@ function ComponentPreview({
     const sizeClass = selectSize === 'sm' ? 'h-8' : selectSize === 'lg' ? 'h-12' : 'h-10'
     const selectRadius = props.borderRadius !== undefined ? `${props.borderRadius}px` : radius
     return (
-      <Select disabled={(props.disabled as boolean) ?? false}>
-        <SelectTrigger
-          className={sizeClass}
-          style={{
-            width: `${selectWidth}px`,
-            backgroundColor: (props.bgColor as string) || undefined,
-            borderColor: (props.borderColor as string) || undefined,
-            color: (props.textColor as string) || undefined,
-            borderRadius: selectRadius,
-          }}
-        >
-          <SelectValue placeholder={(props.placeholder as string) ?? 'Select option'} />
-        </SelectTrigger>
-        <SelectContent>
-          {Array.from({ length: selectOptionCount }, (_, i) => (
-            <SelectItem key={i} value={`opt${i + 1}`}>
-              {(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex items-center justify-center w-full">
+        <Select disabled={(props.disabled as boolean) ?? false}>
+          <SelectTrigger
+            className={sizeClass}
+            style={{
+              width: `${selectWidth}px`,
+              backgroundColor: (props.bgColor as string) || 'hsl(var(--background))',
+              borderColor: (props.borderColor as string) || undefined,
+              color: (props.textColor as string) || 'hsl(var(--foreground))',
+              borderRadius: selectRadius,
+            }}
+          >
+            <SelectValue placeholder={(props.placeholder as string) ?? 'Select option'} />
+          </SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: selectOptionCount }, (_, i) => (
+              <SelectItem key={i} value={`opt${i + 1}`}>
+                {(props[`option${i + 1}Label`] as string) ?? `Option ${i + 1}`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     )
   }
 
@@ -2834,6 +3213,7 @@ function ComponentPreview({
     const isCompact = tableVariant === 'compact'
     const cellPad = isCompact ? 'py-1 px-3' : 'py-2 px-4'
     return (
+      <div className="flex items-center justify-center w-full">
       <Table
         className="w-[400px]"
         style={borderColor && !isBorderless ? { borderColor, '--tw-border-opacity': '1' } as React.CSSProperties : {}}
@@ -2875,6 +3255,7 @@ function ComponentPreview({
           ))}
         </TableBody>
       </Table>
+      </div>
     )
   }
 
@@ -2886,12 +3267,12 @@ function ComponentPreview({
       label: (props[`tab${i}Label`] as string) ?? `Tab ${i + 1}`,
     }))
     const listClass = cn(
-      tabVariant === 'underline' && '!bg-transparent !rounded-none !p-0 !h-auto gap-4 border-b border-border',
+      tabVariant === 'underline' && '!bg-transparent border-0 border-b border-border rounded-none p-0 h-auto gap-6',
       tabVariant === 'pill' && '!rounded-full',
       tabVariant === 'bordered' && '!bg-transparent !rounded-none border-b border-border',
     )
     const triggerClass = cn(
-      tabVariant === 'underline' && '!bg-transparent !rounded-none !shadow-none border-b-2 border-transparent px-0 pb-2 data-[state=active]:!bg-transparent data-[state=active]:border-primary data-[state=active]:!shadow-none',
+      tabVariant === 'underline' && 'border-0 border-b-2 border-transparent rounded-none shadow-none px-1 pb-2 data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground',
       tabVariant === 'pill' && '!rounded-full',
       tabVariant === 'bordered' && 'border border-transparent rounded-t-md data-[state=active]:!bg-background data-[state=active]:border-border',
     )
@@ -2936,9 +3317,9 @@ function ComponentPreview({
         className={cn('w-[280px]', taError && 'border-destructive focus-visible:ring-destructive')}
         style={{
           resize: resizeMap[taResize] as React.CSSProperties['resize'],
-          ...(taBg ? { backgroundColor: taBg } : {}),
+          backgroundColor: taBg || 'hsl(var(--background))',
           ...(taBorder ? { borderColor: taBorder } : {}),
-          ...(taText ? { color: taText } : {}),
+          color: taText || 'hsl(var(--foreground))',
           ...(taRadius !== undefined ? { borderRadius: taRadius } : {}),
           ...(taPad !== undefined ? { padding: taPad } : {}),
           fontSize: taFontSize,
@@ -2997,8 +3378,8 @@ function ComponentPreview({
           <TooltipContent
             side={tooltipSide}
             style={{
-              backgroundColor: (props.bgColor as string) || undefined,
-              color: (props.textColor as string) || undefined,
+              backgroundColor: (props.bgColor as string) || 'hsl(var(--popover))',
+              color: (props.textColor as string) || 'hsl(var(--popover-foreground))',
               borderRadius: tooltipRadius,
             }}
           >
@@ -3006,6 +3387,276 @@ function ComponentPreview({
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+    )
+  }
+
+  if (name === 'Breadcrumb') {
+    const bcItemCount = (props.itemCount as number) ?? 3
+    const bcMaxVisible = (props.maxVisible as number) ?? 99
+    const bcSepStyle = (props.separatorStyle as string) ?? 'slash'
+    const bcFontSize = (props.fontSize as number) ?? 14
+    const fontWeightMap: Record<string, string> = { normal: '400', medium: '500', semibold: '600' }
+    const bcFontWeight = fontWeightMap[(props.fontWeight as string) ?? 'medium'] ?? '500'
+    const bcLinkColor = (props.linkColor as string) || undefined
+    const bcActiveColor = (props.activeColor as string) || undefined
+    const bcSepColor = (props.separatorColor as string) || undefined
+    const allItems = Array.from({ length: bcItemCount }, (_, i) =>
+      (props[`item${i}Label`] as string) ?? (['Home', 'Projects', 'Current Page', 'Details', 'Edit'][i] ?? `Item ${i + 1}`)
+    )
+    const visibleItems = allItems.length > bcMaxVisible
+      ? [allItems[0], '...', allItems[allItems.length - 1]]
+      : allItems
+    const BcSepIcon = bcSepStyle === 'chevron'
+      ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)['ChevronRight'] ?? null
+      : bcSepStyle === 'arrow'
+      ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)['ArrowRight'] ?? null
+      : null
+    return (
+      <Breadcrumb>
+        <BreadcrumbList style={{ fontSize: `${bcFontSize}px` }}>
+          {visibleItems.map((item, i) => (
+            <BreadcrumbItem key={i}>
+              {item === '...' ? (
+                <BreadcrumbEllipsis />
+              ) : i === visibleItems.length - 1 ? (
+                <BreadcrumbPage style={{ fontWeight: bcFontWeight, color: bcActiveColor }}>{item}</BreadcrumbPage>
+              ) : (
+                <BreadcrumbLink style={{ color: bcLinkColor || 'hsl(var(--primary))' }}>{item}</BreadcrumbLink>
+              )}
+              {i < visibleItems.length - 1 && (
+                <BreadcrumbSeparator style={{ color: bcSepColor }}>
+                  {bcSepStyle === 'slash' ? <span>/</span>
+                   : bcSepStyle === 'dot' ? <span>·</span>
+                   : BcSepIcon ? <BcSepIcon size={14} />
+                   : null}
+                </BreadcrumbSeparator>
+              )}
+            </BreadcrumbItem>
+          ))}
+        </BreadcrumbList>
+      </Breadcrumb>
+    )
+  }
+
+  if (name === 'Button Group') {
+    const bgButtons = Array.from({ length: (props.buttonCount as number) ?? 3 })
+    const bgRadius = (props.borderRadius as number) ?? globalRadius
+    const bgActiveColor = (props.activeColor as string) || undefined
+    const bgActiveTextColor = (props.activeTextColor as string) || undefined
+    const bgInactiveColor = (props.inactiveColor as string) || undefined
+    const bgBorderColor = (props.borderColor as string) || undefined
+    return (
+      <div className="flex">
+        {bgButtons.map((_, i) => {
+          const label = (props[`btn${i}Label`] as string) ?? `Option ${i + 1}`
+          const BgIcon = props[`btn${i}Icon`]
+            ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props[`btn${i}Icon`] as string] ?? null
+            : (props.iconOnly as boolean)
+            ? LucideIcons.Square as LucideIconComp
+            : null
+          const isFirst = i === 0
+          const isLast = i === bgButtons.length - 1
+          const isActive = ((props.activeIndex as number) ?? 0) === i
+          return (
+            <button
+              key={i}
+              onClick={() => updateProp('activeIndex', i)}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border transition-colors cursor-pointer"
+              style={{
+                borderRadius: isFirst
+                  ? `${bgRadius}px 0 0 ${bgRadius}px`
+                  : isLast
+                  ? `0 ${bgRadius}px ${bgRadius}px 0`
+                  : '0',
+                marginLeft: !isFirst ? '-1px' : undefined,
+                backgroundColor: isActive ? (bgActiveColor ?? CSS_PRIMARY) : bgInactiveColor,
+                color: isActive ? (bgActiveTextColor ?? CSS_PRIMARY_FG) : undefined,
+                borderColor: bgBorderColor,
+                zIndex: isActive ? 10 : undefined,
+              }}
+            >
+              {BgIcon && <BgIcon size={14} />}
+              {!(props.iconOnly as boolean) && label}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  if (name === 'Sidebar') {
+    const sbCollapsed = (props.collapsed as boolean) ?? false
+    const sbWidth = sbCollapsed ? 56 : (props.width as number) ?? 220
+    const sbItemCount = (props.itemCount as number) ?? 4
+    const sbStyle = (props.style as string) ?? 'default'
+    const sbBg = (props.bgColor as string) || 'hsl(var(--background))'
+    const sbActiveColor = (props.activeColor as string) ?? undefined
+    const sbBorderColor = (props.borderColor as string) || undefined
+    const sbTextColor = (props.textColor as string) || 'hsl(var(--foreground))'
+    const sbRadius = (props.borderRadius as number) ?? globalRadius
+    const defaultLabels = ['Dashboard', 'Projects', 'Components', 'Settings', 'Analytics', 'Help']
+    const defaultIconNames = ['LayoutDashboard', 'FolderOpen', 'Box', 'Settings', 'BarChart2', 'HelpCircle']
+    const sbContainerClass = cn(
+      'flex h-[320px] rounded-lg overflow-hidden border border-border',
+      sbStyle === 'floating' && 'shadow-lg',
+      sbStyle === 'inset' && 'bg-muted/30 p-2',
+    )
+    return (
+      <div className={sbContainerClass}>
+        <div
+          className="flex flex-col h-full border-r border-border transition-all duration-200 shrink-0"
+          style={{ width: `${sbWidth}px`, backgroundColor: sbBg, borderColor: sbBorderColor }}
+        >
+          <div className="flex items-center gap-2 px-3 py-4 border-b border-border/40">
+            <div className="h-6 w-6 rounded-md shrink-0" style={{ backgroundColor: CSS_PRIMARY }} />
+            {!sbCollapsed && (
+              <span className="font-semibold text-sm truncate" style={{ color: sbTextColor }}>
+                {(props.appName as string) ?? 'Blox'}
+              </span>
+            )}
+          </div>
+          <nav className="flex-1 flex flex-col gap-0.5 px-2 py-2">
+            {Array.from({ length: sbItemCount }, (_, i) => {
+              const label = (props[`item${i}Label`] as string) ?? (defaultLabels[i] ?? `Item ${i + 1}`)
+              const iconName = (props[`item${i}Icon`] as string) ?? (defaultIconNames[i] ?? 'Circle')
+              const NavIcon = (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[iconName] ?? null
+              const isActive = ((props.activeItem as number) ?? 0) === i
+              return (
+                <button
+                  key={i}
+                  onClick={() => updateProp('activeItem', i)}
+                  className="flex items-center gap-2.5 py-2 text-sm transition-colors cursor-pointer w-full text-left"
+                  style={{
+                    paddingLeft: '10px',
+                    paddingRight: '8px',
+                    borderRadius: `${sbRadius}px`,
+                    backgroundColor: isActive
+                      ? (sbActiveColor ? `${sbActiveColor}22` : 'hsl(var(--primary) / 0.1)')
+                      : undefined,
+                    color: isActive ? (sbActiveColor ?? CSS_PRIMARY) : (sbTextColor ?? undefined),
+                    fontWeight: isActive ? '500' : undefined,
+                    borderLeft: isActive
+                      ? `2px solid ${sbActiveColor ?? CSS_PRIMARY}`
+                      : '2px solid transparent',
+                  }}
+                >
+                  {NavIcon && <NavIcon size={16} className="shrink-0" />}
+                  {!sbCollapsed && <span className="truncate">{label}</span>}
+                </button>
+              )
+            })}
+          </nav>
+          <div className="flex items-center gap-2 px-3 py-3 border-t border-border/40">
+            <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+              <span className="text-xs font-medium">AC</span>
+            </div>
+            {!sbCollapsed && (
+              <span className="text-xs text-muted-foreground truncate">Alex Chen</span>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center bg-muted/20">
+          <p className="text-xs text-muted-foreground/50">Main content</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (name === 'Bar Chart') {
+    const barData = [
+      { name: 'Jan', value: 400, value2: 240 },
+      { name: 'Feb', value: 300, value2: 139 },
+      { name: 'Mar', value: 600, value2: 380 },
+      { name: 'Apr', value: 800, value2: 430 },
+      { name: 'May', value: 500, value2: 290 },
+      { name: 'Jun', value: 900, value2: 480 },
+    ]
+    const barLayout = (props.layout as string) ?? 'vertical'
+    const barRad = (props.barRadius as number) ?? 4
+    const barColor = (props.barColor as string) ?? 'hsl(var(--primary))'
+    const bar2Color = (props.bar2Color as string) || '#94a3b8'
+    const gridColor = (props.gridColor as string) || undefined
+    const bgColor = (props.bgColor as string) || 'hsl(var(--background))'
+    const showGrid = (props.showGrid as boolean) ?? false
+    const showSecondSeries = (props.showSecondSeries as boolean) ?? false
+    const series1Label = (props.series1Label as string) ?? 'Series 1'
+    const series2Label = (props.series2Label as string) ?? 'Series 2'
+    const isHorizontal = barLayout === 'horizontal'
+    return (
+      <div className="flex items-center justify-center w-full">
+      <div className="w-[380px] h-[260px] rounded-lg overflow-hidden" style={{ backgroundColor: bgColor }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={barData} layout={isHorizontal ? 'vertical' : 'horizontal'}>
+            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
+            <XAxis
+              dataKey={isHorizontal ? undefined : 'name'}
+              type={isHorizontal ? 'number' : 'category'}
+              tick={{ fontSize: 11 }}
+            />
+            <YAxis
+              dataKey={isHorizontal ? 'name' : undefined}
+              type={isHorizontal ? 'category' : 'number'}
+              tick={{ fontSize: 11 }}
+            />
+            {props.showTooltip !== false && <RechartsTooltip />}
+            {props.showLegend && <Legend />}
+            <Bar dataKey="value" name={series1Label} fill={barColor} radius={barRad} />
+            {showSecondSeries && <Bar dataKey="value2" name={series2Label} fill={bar2Color} radius={barRad} />}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      </div>
+    )
+  }
+
+  if (name === 'Line Chart') {
+    const lineData = [
+      { name: 'Jan', value: 400, value2: 240 },
+      { name: 'Feb', value: 300, value2: 139 },
+      { name: 'Mar', value: 600, value2: 380 },
+      { name: 'Apr', value: 800, value2: 430 },
+      { name: 'May', value: 500, value2: 290 },
+      { name: 'Jun', value: 900, value2: 480 },
+    ]
+    const lineColor = (props.lineColor as string) ?? 'hsl(var(--primary))'
+    const line2Color = (props.line2Color as string) || '#94a3b8'
+    const gridColor = (props.gridColor as string) || undefined
+    const filled = (props.filled as boolean) ?? false
+    const curve = ((props.curve as string) ?? 'monotone') as 'monotone' | 'linear' | 'step' | 'natural'
+    const strokeW = (props.strokeWidth as number) ?? 2
+    const showDots = (props.showDots as boolean) ?? false
+    const showGrid = (props.showGrid as boolean) ?? false
+    const showSecondSeries = (props.showSecondSeries as boolean) ?? false
+    const series1Label = (props.series1Label as string) ?? 'Series 1'
+    const series2Label = (props.series2Label as string) ?? 'Series 2'
+    return (
+      <div className="flex items-center justify-center w-full">
+      <div className="w-[380px] h-[260px]">
+        <ResponsiveContainer width="100%" height="100%">
+          {filled ? (
+            <AreaChart data={lineData}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
+              {props.showTooltip !== false && <RechartsTooltip />}
+              {props.showLegend && <Legend />}
+              <Area type={curve} dataKey="value" name={series1Label} stroke={lineColor} fill={lineColor} fillOpacity={0.2} strokeWidth={strokeW} dot={showDots} />
+              {showSecondSeries && <Area type={curve} dataKey="value2" name={series2Label} stroke={line2Color} fill={line2Color} fillOpacity={0.2} strokeWidth={strokeW} dot={showDots} />}
+            </AreaChart>
+          ) : (
+            <LineChart data={lineData}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
+              {props.showTooltip !== false && <RechartsTooltip />}
+              {props.showLegend && <Legend />}
+              <Line type={curve} dataKey="value" name={series1Label} stroke={lineColor} strokeWidth={strokeW} dot={showDots} />
+              {showSecondSeries && <Line type={curve} dataKey="value2" name={series2Label} stroke={line2Color} strokeWidth={strokeW} dot={showDots} />}
+            </LineChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+      </div>
     )
   }
 
@@ -3099,6 +3750,10 @@ export default function Editor() {
 
   useProjectTokens(primaryColor, paletteColors)
 
+  const [activePrimaryColor, setActivePrimaryColor] = useState(
+    project?.primaryColor ?? '#000000'
+  )
+
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null)
   const [allComponentProps, setAllComponentProps] = useState<Record<string, ComponentProps>>(() => {
     if (!projectId) return {}
@@ -3124,6 +3779,24 @@ export default function Editor() {
   })
   const [searchQuery, setSearchQuery] = useState('')
   const [exportOpen, setExportOpen] = useState(false)
+  const [themeOpen, setThemeOpen] = useState(false)
+  const [activeThemeId, setActiveThemeId] = useState(projectId ?? '')
+  const [activeDots, setActiveDots] = useState(paletteColors)
+
+  function applyTheme(themePrimary: string, colors: string[], id: string) {
+    injectTokens(themePrimary, colors)
+    setActiveThemeId(id)
+    setActiveDots(colors)
+    setActivePrimaryColor(themePrimary)
+    setThemeOpen(false)
+    setAllComponentProps(prev => {
+      const next = { ...prev }
+      Object.keys(next).forEach(comp => {
+        next[comp] = { ...next[comp], bgColor: undefined, textColor: undefined }
+      })
+      return next
+    })
+  }
 
   useEffect(() => {
     if (!projectId) return
@@ -3195,15 +3868,74 @@ export default function Editor() {
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <Badge variant="outline" className="gap-1 pr-2 pl-2">
-              {project.colors.map((color) => (
-                <span
-                  key={color}
-                  className="inline-block h-1.5 w-1.5 rounded-sm"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </Badge>
+            <Popover open={themeOpen} onOpenChange={setThemeOpen}>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1 cursor-pointer p-1 rounded-md hover:bg-muted transition-colors">
+                  {activeDots.slice(0, 3).map((color, i) => (
+                    <span
+                      key={i}
+                      className="inline-block w-3.5 h-3.5 rounded-full"
+                      style={{ backgroundColor: color, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
+                    />
+                  ))}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-4 flex flex-col gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Project palettes</p>
+                  {(() => {
+                    try {
+                      const raw = localStorage.getItem('blox_projects')
+                      const projects = raw ? (JSON.parse(raw) as Project[]) : []
+                      return projects.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => applyTheme(p.primaryColor, p.colors, p.id)}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2 rounded-md w-full text-left transition-colors cursor-pointer border',
+                            activeThemeId === p.id
+                              ? 'bg-accent/15 border-accent/30'
+                              : 'hover:bg-muted border-transparent',
+                          )}
+                        >
+                          <div className="flex gap-1 shrink-0">
+                            {p.colors.map((c: string, i: number) => (
+                              <span key={i} className="w-3 h-3 rounded-full" style={{ backgroundColor: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }} />
+                            ))}
+                          </div>
+                          <span className="text-sm truncate flex-1">{p.name}</span>
+                          {activeThemeId === p.id && <Check size={14} className="ml-auto text-primary shrink-0" />}
+                        </button>
+                      ))
+                    } catch { return null }
+                  })()}
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Built-in themes</p>
+                  {SHADCN_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      onClick={() => applyTheme(preset.primary, preset.colors, preset.name)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-md w-full text-left transition-colors cursor-pointer border',
+                        activeThemeId === preset.name
+                          ? 'bg-accent/15 border-accent/30'
+                          : 'hover:bg-muted border-transparent',
+                      )}
+                    >
+                      <div className="flex gap-1 shrink-0">
+                        {preset.colors.map((c, i) => (
+                          <span key={i} className="w-3 h-3 rounded-full" style={{ backgroundColor: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }} />
+                        ))}
+                      </div>
+                      <span className="text-sm truncate flex-1">{preset.name}</span>
+                      {activeThemeId === preset.name && <Check size={14} className="ml-auto text-primary shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
@@ -3265,26 +3997,19 @@ export default function Editor() {
           {/* ── Canvas ── */}
           <main className="flex-1 flex items-center justify-center overflow-hidden relative canvas-grid">
             {selectedComponent ? (
-              <div
-                className="bg-background rounded-xl border border-border shadow-sm p-12 flex items-center justify-center"
-                style={{
-                  minWidth: '320px',
-                  minHeight: '200px',
-                  width: currentProps.fullWidth ? '600px' : undefined,
-                }}
-              >
-                <ComponentPreview
-                  name={selectedComponent}
-                  props={currentProps}
-                  updateProp={updateProp}
-                  globalRadius={projectSettings.globalRadius}
-                />
-              </div>
+              <ComponentPreview
+                name={selectedComponent}
+                props={currentProps}
+                updateProp={updateProp}
+                globalRadius={projectSettings.globalRadius}
+              />
             ) : (
-              <div className="flex flex-col items-center gap-2 text-center">
-                <LayoutGrid size={32} strokeWidth={1.5} className="text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground/60">Select a component to preview</p>
-                <p className="text-xs text-muted-foreground/40">Choose from the panel on the left</p>
+              <div className="flex flex-col items-center gap-3 text-center">
+                <LayoutGrid size={40} strokeWidth={1} className="text-muted-foreground/25" />
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground/60">No component selected</p>
+                  <p className="text-xs text-muted-foreground/40 mt-1">Pick a component from the left panel to preview and configure it.</p>
+                </div>
               </div>
             )}
           </main>
@@ -3311,7 +4036,7 @@ export default function Editor() {
                   props={currentProps}
                   updateProp={updateProp}
                   paletteColors={paletteColors}
-                  primaryColor={primaryColor}
+                  primaryColor={activePrimaryColor}
                   globalRadius={projectSettings.globalRadius}
                   onChangeGlobalRadius={(v) => setProjectSettings((prev) => ({ ...prev, globalRadius: v }))}
                 />

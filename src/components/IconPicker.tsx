@@ -3,13 +3,17 @@ import * as LucideIcons from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 
-const ICON_ENTRIES = Object.entries(LucideIcons).filter(([name, value]) => {
-  return (
-    typeof value === 'function' &&
-    /^[A-Z]/.test(name) &&
-    !['createLucideIcon', 'default'].includes(name)
-  )
-}) as [string, React.FC<{ className?: string; style?: React.CSSProperties }>][]
+type IconFC = React.FC<{ className?: string }>
+
+const ICON_ENTRIES = (Object.keys(LucideIcons) as string[])
+  .filter(key => {
+    if (key === 'default' || key === 'createLucideIcon') return false
+    if (!/^[A-Z]/.test(key)) return false
+    const val = (LucideIcons as Record<string, unknown>)[key]
+    if (typeof val !== 'function') return false
+    return true
+  })
+  .map(key => [key, (LucideIcons as unknown as Record<string, IconFC>)[key]] as [string, IconFC])
 
 interface IconPickerProps {
   value: string | null
@@ -21,13 +25,12 @@ export default function IconPicker({ value, onChange, placeholder = 'Add icon...
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const filtered = useMemo(
-    () =>
-      query.trim() === ''
-        ? ICON_ENTRIES.slice(0, 120)
-        : ICON_ENTRIES.filter(([name]) => name.toLowerCase().includes(query.toLowerCase())).slice(0, 120),
-    [query],
-  )
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return q === ''
+      ? ICON_ENTRIES.slice(0, 120)
+      : ICON_ENTRIES.filter(([name]) => name.toLowerCase().includes(q)).slice(0, 200)
+  }, [query])
 
   const SelectedIcon = value
     ? (LucideIcons as unknown as Record<string, React.FC<{ className?: string }> | undefined>)[value] ?? null
