@@ -1,6 +1,20 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useProjectTokens, injectTokens } from '@/hooks/useProjectTokens'
+import { useProjectTokens, hexToOklch } from '@/hooks/useProjectTokens'
+import {
+  type SemanticTokenKey,
+  type SemanticTokens,
+  type TokenPreset,
+  type CuratedColor,
+  DEFAULT_TOKENS,
+  TOKEN_KEYS,
+  TOKEN_LABELS,
+  TOKEN_GROUPS,
+  TOKEN_CSS_VARS,
+  TOKEN_PRESETS,
+  CURATED_COLORS,
+  injectSemanticTokens,
+} from '@/lib/tokens'
 import * as LucideIcons from 'lucide-react'
 import IconPicker from '@/components/IconPicker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -116,19 +130,7 @@ const defaultPadding: PaddingValue = { top: 8, right: 16, bottom: 8, left: 16 }
 
 type LucideIconComp = React.ComponentType<{ size?: number; className?: string }>
 
-// ─── Theme presets ────────────────────────────────────────────────────────────
-
-const SHADCN_PRESETS = [
-  { name: 'Default',  primary: '#18181b', colors: ['#18181b', '#71717a', '#e4e4e7'] },
-  { name: 'Zinc',     primary: '#3f3f46', colors: ['#3f3f46', '#71717a', '#d4d4d8'] },
-  { name: 'Slate',    primary: '#1e293b', colors: ['#1e293b', '#64748b', '#cbd5e1'] },
-  { name: 'Stone',    primary: '#1c1917', colors: ['#1c1917', '#78716c', '#d6d3d1'] },
-  { name: 'Blue',     primary: '#2563eb', colors: ['#2563eb', '#3b82f6', '#93c5fd'] },
-  { name: 'Violet',   primary: '#7c3aed', colors: ['#7c3aed', '#8b5cf6', '#c4b5fd'] },
-  { name: 'Rose',     primary: '#e11d48', colors: ['#e11d48', '#f43f5e', '#fda4af'] },
-  { name: 'Orange',   primary: '#ea580c', colors: ['#ea580c', '#f97316', '#fdba74'] },
-  { name: 'Green',    primary: '#16a34a', colors: ['#16a34a', '#22c55e', '#86efac'] },
-]
+// TOKEN_PRESETS, TOKEN_PRESETS, CURATED_COLORS etc. are imported from @/lib/tokens
 
 // ─── CSS var helpers ─────────────────────────────────────────────────────────
 // IMPORTANT: This project uses Tailwind v4 + OKLCH. CSS vars hold full color
@@ -3748,6 +3750,105 @@ function ComponentPreview({
   return null
 }
 
+// ─── Colors panel ─────────────────────────────────────────────────────────────
+
+function ColorsPanel({
+  tokens,
+  onTokenChange,
+  activePresetName,
+  onApplyPreset,
+}: {
+  tokens: SemanticTokens
+  onTokenChange: (key: SemanticTokenKey, value: string) => void
+  activePresetName: string
+  onApplyPreset: (preset: TokenPreset) => void
+}) {
+  const [editingKey, setEditingKey] = useState<SemanticTokenKey | null>(null)
+
+  return (
+    <div className="flex flex-col h-full overflow-y-auto">
+      {/* Preset strip */}
+      <div className="px-3 pt-4 pb-3 border-b border-border/40 shrink-0">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Presets</p>
+        <div className="flex flex-wrap gap-1.5">
+          {TOKEN_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              onClick={() => onApplyPreset(preset)}
+              className={cn(
+                'flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs cursor-pointer transition-colors',
+                activePresetName === preset.name
+                  ? 'bg-accent/15 border-accent/30 text-foreground'
+                  : 'border-transparent hover:bg-muted text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <span className="flex gap-0.5">
+                {preset.swatchColors.map((c, i) => (
+                  <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }} />
+                ))}
+              </span>
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Token rows */}
+      <div className="flex-1 py-2">
+        {TOKEN_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 pt-3 pb-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{group.label}</p>
+            {group.keys.map((key) => (
+              <div key={key} className="relative">
+                <div className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 group">
+                  {/* Swatch */}
+                  <div
+                    className="w-6 h-6 rounded-md border border-border shrink-0 cursor-pointer"
+                    style={{ backgroundColor: tokens[key], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)' }}
+                    onClick={() => setEditingKey(editingKey === key ? null : key)}
+                  />
+                  {/* Label */}
+                  <span className="text-xs text-foreground flex-1 truncate">{TOKEN_LABELS[key]}</span>
+                  {/* Value chip */}
+                  <button
+                    onClick={() => setEditingKey(editingKey === key ? null : key)}
+                    className="text-[10px] font-mono text-muted-foreground/60 hover:text-muted-foreground cursor-pointer transition-colors opacity-0 group-hover:opacity-100 truncate max-w-[80px]"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                {/* Inline color picker */}
+                {editingKey === key && (
+                  <div className="mx-3 mb-2 p-2 rounded-lg border border-border bg-muted/30">
+                    <div className="flex flex-wrap gap-1">
+                      {CURATED_COLORS.map((color) => (
+                        <button
+                          key={color.oklch}
+                          title={color.label}
+                          onClick={() => {
+                            onTokenChange(key, color.oklch)
+                            setEditingKey(null)
+                          }}
+                          className={cn(
+                            'w-5 h-5 rounded-sm cursor-pointer transition-all hover:scale-110',
+                            tokens[key] === color.oklch && 'ring-2 ring-offset-1 ring-foreground',
+                          )}
+                          style={{ backgroundColor: color.hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Variants preview ────────────────────────────────────────────────────────
 
 function VariantsPreview({
@@ -3940,9 +4041,29 @@ export default function Editor() {
 
   const project = projectId ? loadProject(projectId) : null
   const paletteColors: string[] = project?.colors ?? []
-  const primaryColor: string = project?.primaryColor ?? '#000000'
 
-  useProjectTokens(primaryColor, paletteColors)
+  // Semantic color tokens — source of truth for all CSS vars
+  const [semanticTokens, setSemanticTokens] = useState<SemanticTokens>(() => {
+    if (!projectId) return DEFAULT_TOKENS
+    try {
+      const stored = localStorage.getItem(`blox_tokens_${projectId}`)
+      if (stored) return JSON.parse(stored) as SemanticTokens
+    } catch { /* fall through */ }
+    return DEFAULT_TOKENS
+  })
+
+  useProjectTokens(semanticTokens, paletteColors)
+
+  // Re-inject tokens whenever they change (after mount)
+  useEffect(() => {
+    injectSemanticTokens(semanticTokens)
+  }, [semanticTokens])
+
+  // Persist tokens to localStorage
+  useEffect(() => {
+    if (!projectId) return
+    localStorage.setItem(`blox_tokens_${projectId}`, JSON.stringify(semanticTokens))
+  }, [semanticTokens, projectId])
 
   const [activePrimaryColor, setActivePrimaryColor] = useState(
     project?.primaryColor ?? '#000000'
@@ -3971,6 +4092,8 @@ export default function Editor() {
       return { globalRadius: 6 }
     }
   })
+  const [leftPanelView, setLeftPanelView] = useState<'components' | 'colors'>('components')
+  const [activePresetName, setActivePresetName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [previewMode, setPreviewMode] = useState<'single' | 'variants' | 'states'>('single')
   const [zoomLevel, setZoomLevel] = useState(100)
@@ -3979,11 +4102,32 @@ export default function Editor() {
   const [activeThemeId, setActiveThemeId] = useState(projectId ?? '')
   const [activeDots, setActiveDots] = useState(paletteColors)
 
-  function applyTheme(themePrimary: string, colors: string[], id: string) {
-    injectTokens(themePrimary, colors)
-    setActiveThemeId(id)
-    setActiveDots(colors)
-    setActivePrimaryColor(themePrimary)
+  function applyPreset(preset: TokenPreset) {
+    setSemanticTokens(preset.tokens)
+    injectSemanticTokens(preset.tokens)
+    setActiveThemeId(preset.name)
+    setActivePresetName(preset.name)
+    setActiveDots(preset.swatchColors)
+    setActivePrimaryColor(preset.swatchColors[0])
+    setThemeOpen(false)
+    setAllComponentProps(prev => {
+      const next = { ...prev }
+      Object.keys(next).forEach(comp => {
+        next[comp] = { ...next[comp], bgColor: undefined, textColor: undefined }
+      })
+      return next
+    })
+  }
+
+  function applyProjectPalette(p: Project) {
+    const primary = hexToOklch(p.primaryColor)
+    const updated = { ...semanticTokens, primary, primaryForeground: 'oklch(0.985 0 0)' }
+    setSemanticTokens(updated)
+    injectSemanticTokens(updated)
+    setActiveThemeId(p.id)
+    setActivePresetName('')
+    setActiveDots(p.colors)
+    setActivePrimaryColor(p.primaryColor)
     setThemeOpen(false)
     setAllComponentProps(prev => {
       const next = { ...prev }
@@ -4096,7 +4240,7 @@ export default function Editor() {
                       return projects.map((p) => (
                         <button
                           key={p.id}
-                          onClick={() => applyTheme(p.primaryColor, p.colors, p.id)}
+                          onClick={() => applyProjectPalette(p)}
                           className={cn(
                             'flex items-center gap-3 px-3 py-2 rounded-md w-full text-left transition-colors cursor-pointer border',
                             activeThemeId === p.id
@@ -4119,10 +4263,10 @@ export default function Editor() {
                 <Separator />
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Built-in themes</p>
-                  {SHADCN_PRESETS.map((preset) => (
+                  {TOKEN_PRESETS.map((preset) => (
                     <button
                       key={preset.name}
-                      onClick={() => applyTheme(preset.primary, preset.colors, preset.name)}
+                      onClick={() => applyPreset(preset)}
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-md w-full text-left transition-colors cursor-pointer border',
                         activeThemeId === preset.name
@@ -4131,7 +4275,7 @@ export default function Editor() {
                       )}
                     >
                       <div className="flex gap-1 shrink-0">
-                        {preset.colors.map((c, i) => (
+                        {preset.swatchColors.map((c, i) => (
                           <span key={i} className="w-3 h-3 rounded-full" style={{ backgroundColor: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }} />
                         ))}
                       </div>
@@ -4170,34 +4314,65 @@ export default function Editor() {
 
           {/* ── Left panel ── */}
           <aside className="w-[260px] border-r border-border flex flex-col h-full">
-            <p className="px-3 pt-5 pb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground shrink-0">
-              Components
-            </p>
-            <div className="px-3 pb-2 shrink-0">
-              <Input
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 text-xs rounded-md"
-              />
-            </div>
-            <div className="flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: 'thin' }}>
-              {filteredComponents.map((name) => (
+            {/* Panel nav */}
+            <div className="flex shrink-0 border-b border-border/40">
+              {(['components', 'colors'] as const).map((view) => (
                 <button
-                  key={name}
-                  onClick={() => setSelectedComponent(name)}
+                  key={view}
+                  onClick={() => setLeftPanelView(view)}
                   className={cn(
-                    'w-full text-left px-3 py-2 rounded-md mx-1 text-sm cursor-pointer transition-colors duration-100',
-                    selectedComponent === name
-                      ? 'bg-accent text-accent-foreground font-medium'
-                      : 'text-foreground hover:bg-muted',
+                    'flex-1 py-2.5 text-xs capitalize cursor-pointer transition-colors border-b-2',
+                    leftPanelView === view
+                      ? 'border-foreground text-foreground font-medium'
+                      : 'border-transparent text-muted-foreground hover:text-foreground',
                   )}
-                  style={{ width: 'calc(100% - 8px)' }}
                 >
-                  {name}
+                  {view}
                 </button>
               ))}
             </div>
+
+            {leftPanelView === 'components' ? (
+              <>
+                <div className="px-3 py-2 shrink-0">
+                  <Input
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-7 text-xs rounded-md"
+                  />
+                </div>
+                <div className="flex-1 overflow-y-auto py-1">
+                  {filteredComponents.map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => setSelectedComponent(name)}
+                      className={cn(
+                        'w-full text-left px-3 py-2 rounded-md mx-1 text-sm cursor-pointer transition-colors duration-100',
+                        selectedComponent === name
+                          ? 'bg-accent text-accent-foreground font-medium'
+                          : 'text-foreground hover:bg-muted',
+                      )}
+                      style={{ width: 'calc(100% - 8px)' }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 overflow-hidden">
+                <ColorsPanel
+                  tokens={semanticTokens}
+                  onTokenChange={(key, value) => setSemanticTokens(prev => ({ ...prev, [key]: value }))}
+                  activePresetName={activePresetName}
+                  onApplyPreset={(preset) => {
+                    applyPreset(preset)
+                    setThemeOpen(false)
+                  }}
+                />
+              </div>
+            )}
           </aside>
 
           {/* ── Canvas ── */}
