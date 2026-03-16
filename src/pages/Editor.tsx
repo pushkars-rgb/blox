@@ -131,9 +131,12 @@ const SHADCN_PRESETS = [
 ]
 
 // ─── CSS var helpers ─────────────────────────────────────────────────────────
+// IMPORTANT: This project uses Tailwind v4 + OKLCH. CSS vars hold full color
+// values, e.g. --primary: oklch(0.205 0 0). Always use var(--token) directly.
+// Never wrap in hsl()/rgb() — that produces invalid CSS and renders transparent.
 
-const CSS_PRIMARY = 'hsl(var(--primary))'
-const CSS_PRIMARY_FG = 'hsl(var(--primary-foreground))'
+const CSS_PRIMARY = 'var(--primary)'
+const CSS_PRIMARY_FG = 'var(--primary-foreground)'
 
 // ─── Component list ───────────────────────────────────────────────────────────
 
@@ -2612,7 +2615,7 @@ function DialogPreview({ props, globalRadius }: { props: ComponentProps; globalR
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           className={cn(sizeClass, isTop && 'top-16 translate-y-0')}
-          style={{ backgroundColor: (props.bgColor as string) || 'hsl(var(--background))', borderRadius: radius }}
+          style={{ backgroundColor: (props.bgColor as string) || undefined, borderRadius: radius }}
         >
           <DialogHeader style={props.headerBg ? { backgroundColor: props.headerBg as string, margin: '-1.5rem -1.5rem 0', padding: '1.5rem', borderRadius: `${radius} ${radius} 0 0` } : {}}>
             <DialogTitle>{(props.title as string) ?? 'Dialog Title'}</DialogTitle>
@@ -2647,7 +2650,7 @@ function PopoverPreview({ props, globalRadius }: { props: ComponentProps; global
         align={align}
         style={{
           width: `${width}px`,
-          backgroundColor: (props.bgColor as string) || 'hsl(var(--popover))',
+          backgroundColor: (props.bgColor as string) || undefined,
           borderColor: (props.borderColor as string) || undefined,
           borderRadius: radius,
         }}
@@ -2704,7 +2707,7 @@ function ComponentPreview({
       ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props.fallbackIcon as string] ?? null
       : null
     const borderStyle: React.CSSProperties = props.strokeWidth && Number(props.strokeWidth) > 0
-      ? { border: `${props.strokeWidth}px solid ${(props.borderColor as string) ?? '#e5e7eb'}` }
+      ? { border: `${props.strokeWidth}px solid ${(props.borderColor as string) ?? 'var(--border)'}` }
       : {}
     return (
       <Avatar className={cn(sizeClass, shapeClass)} style={{ ...borderStyle, borderRadius: explicitRadius }}>
@@ -2730,8 +2733,8 @@ function ComponentPreview({
       <Badge
         variant={(props.variant as BadgeVariant) ?? 'default'}
         style={{
-          backgroundColor: (props.bgColor as string) || 'hsl(var(--primary))',
-          color: (props.textColor as string) || 'hsl(var(--primary-foreground))',
+          backgroundColor: (props.bgColor as string) || undefined,
+          color: (props.textColor as string) || undefined,
           borderRadius: radius,
           fontSize: props.fontSize ? `${props.fontSize}px` : undefined,
           fontWeight: props.fontWeight as string | undefined,
@@ -2763,9 +2766,9 @@ function ComponentPreview({
         disabled={(props.disabled as boolean) ?? false}
         className={props.fullWidth ? 'w-full' : ''}
         style={{
-          backgroundColor: props.bgColor as string | undefined,
-          color: props.textColor as string | undefined,
-          borderColor: props.borderColor as string | undefined,
+          backgroundColor: (props.bgColor as string) || undefined,
+          color: (props.textColor as string) || undefined,
+          borderColor: (props.borderColor as string) || undefined,
           borderRadius: radius,
           fontSize: props.fontSize ? `${props.fontSize}px` : undefined,
           fontWeight: props.fontWeight as string | undefined,
@@ -2824,8 +2827,8 @@ function ComponentPreview({
       <Card
         className="w-[320px]"
         style={{
-          backgroundColor: (props.bgColor as string) ?? 'hsl(var(--card))',
-          borderColor: (props.borderColor as string) ?? 'hsl(var(--border))',
+          backgroundColor: (props.bgColor as string) ?? 'var(--card)',
+          borderColor: (props.borderColor as string) ?? 'var(--border)',
           borderRadius: radius,
           boxShadow: shadowValue(props.shadow as string | undefined),
           borderWidth: props.strokeWidth ? `${props.strokeWidth}px` : undefined,
@@ -2898,8 +2901,8 @@ function ComponentPreview({
           side={dmSide}
           align={dmAlign}
           style={{
-            backgroundColor: (props.bgColor as string) || 'hsl(var(--popover))',
-            color: (props.textColor as string) || 'hsl(var(--popover-foreground))',
+            backgroundColor: (props.bgColor as string) || undefined,
+            color: (props.textColor as string) || undefined,
             borderRadius: radius,
           }}
         >
@@ -2932,9 +2935,9 @@ function ComponentPreview({
           disabled={(props.disabled as boolean) ?? false}
           className={cn('w-[280px]', hasError && 'border-destructive')}
           style={{
-            backgroundColor: (props.bgColor as string) ?? 'hsl(var(--background))',
-            color: (props.textColor as string) ?? 'hsl(var(--foreground))',
-            borderColor: hasError ? undefined : props.borderColor as string | undefined,
+            backgroundColor: (props.bgColor as string) ?? 'var(--background)',
+            color: (props.textColor as string) ?? 'var(--foreground)',
+            borderColor: hasError ? undefined : (props.borderColor as string) || undefined,
             borderRadius: radius,
             borderWidth: props.strokeWidth ? `${props.strokeWidth}px` : undefined,
             paddingTop: inputPadding ? `${inputPadding.top}px` : undefined,
@@ -2963,7 +2966,7 @@ function ComponentPreview({
           fontSize: `${(props.fontSize as number) ?? 14}px`,
           fontWeight: fontWeightMap[(props.fontWeight as string) ?? 'medium'] ?? '500',
           letterSpacing: letterSpacingMap[(props.letterSpacing as string) ?? 'normal'] ?? '0em',
-          color: (props.textColor as string) || 'hsl(var(--foreground))',
+          color: (props.textColor as string) || undefined,
         }}
       >
         {(props.text as string) ?? 'Form label'}
@@ -2981,7 +2984,7 @@ function ComponentPreview({
     const progressSize = (props.size as string) ?? 'default'
     const progressStyle = (props.style as string) ?? 'default'
     const sizeClass = progressSize === 'sm' ? 'h-1.5' : progressSize === 'lg' ? 'h-4' : 'h-2.5'
-    const indicatorColor = (props.indicatorColor as string) || 'hsl(var(--primary))'
+    const indicatorColor = (props.indicatorColor as string) || 'var(--primary)'
     const trackColor = (props.trackColor as string) || undefined
     const progressRadius = props.borderRadius !== undefined ? `${props.borderRadius}px` : radius
     return (
@@ -2998,7 +3001,7 @@ function ComponentPreview({
     )
   }
 
-  if (name === 'Radio Group') {
+  if (name === 'Radio Group') { // centered
     const rgOrientation = (props.orientation as string) ?? 'vertical'
     const rgOptionCount = (props.optionCount as number) ?? 3
     const rgDisabled = (props.disabled as boolean) ?? false
@@ -3009,7 +3012,7 @@ function ComponentPreview({
           value={(props.defaultValue as string) ?? 'option1'}
           onValueChange={(v) => updateProp('defaultValue', v)}
           disabled={rgDisabled}
-          className={cn(rgOrientation === 'horizontal' ? 'flex flex-row gap-4' : 'flex flex-col gap-2')}
+          className={cn(rgOrientation === 'horizontal' ? 'flex flex-row gap-4' : 'flex flex-col gap-2', 'w-fit')}
         >
           {Array.from({ length: rgOptionCount }, (_, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -3037,9 +3040,9 @@ function ComponentPreview({
             className={sizeClass}
             style={{
               width: `${selectWidth}px`,
-              backgroundColor: (props.bgColor as string) || 'hsl(var(--background))',
+              backgroundColor: (props.bgColor as string) || undefined,
               borderColor: (props.borderColor as string) || undefined,
-              color: (props.textColor as string) || 'hsl(var(--foreground))',
+              color: (props.textColor as string) || undefined,
               borderRadius: selectRadius,
             }}
           >
@@ -3214,47 +3217,46 @@ function ComponentPreview({
     const cellPad = isCompact ? 'py-1 px-3' : 'py-2 px-4'
     return (
       <div className="flex items-center justify-center w-full">
-      <Table
-        className="w-[400px]"
-        style={borderColor && !isBorderless ? { borderColor, '--tw-border-opacity': '1' } as React.CSSProperties : {}}
-      >
-        {showHeader && (
-          <TableHeader>
-            <TableRow style={headerBg ? { backgroundColor: headerBg } : {}}>
-              {colHeaders.map((h) => (
-                <TableHead
-                  key={h}
-                  className={cn(cellPad, isBorderless && 'border-0')}
-                  style={borderColor && !isBorderless ? { borderColor } : {}}
+        <div className="w-[720px] max-w-full">
+          <Table style={borderColor && !isBorderless ? { borderColor } : {}}>
+            {showHeader && (
+              <TableHeader>
+                <TableRow style={headerBg ? { backgroundColor: headerBg } : {}}>
+                  {colHeaders.map((h) => (
+                    <TableHead
+                      key={h}
+                      className={cn(cellPad, isBorderless && 'border-0')}
+                      style={borderColor && !isBorderless ? { borderColor } : {}}
+                    >
+                      {h}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+            )}
+            <TableBody>
+              {rowData.map((row, ri) => (
+                <TableRow
+                  key={ri}
+                  className={cn(isBorderless && 'border-0')}
+                  style={{
+                    ...(tableVariant === 'striped' && ri % 2 === 1 && stripeColor ? { backgroundColor: stripeColor } : {}),
+                    ...(borderColor && !isBorderless ? { borderColor } : {}),
+                  }}
                 >
-                  {h}
-                </TableHead>
+                  {row.map((cell, ci) => (
+                    <TableCell
+                      key={ci}
+                      className={cn(cellPad, isBorderless && 'border-0')}
+                    >
+                      {cell}
+                    </TableCell>
+                  ))}
+                </TableRow>
               ))}
-            </TableRow>
-          </TableHeader>
-        )}
-        <TableBody>
-          {rowData.map((row, ri) => (
-            <TableRow
-              key={ri}
-              className={cn(isBorderless && 'border-0')}
-              style={{
-                ...(tableVariant === 'striped' && ri % 2 === 1 && stripeColor ? { backgroundColor: stripeColor } : {}),
-                ...(borderColor && !isBorderless ? { borderColor } : {}),
-              }}
-            >
-              {row.map((cell, ci) => (
-                <TableCell
-                  key={ci}
-                  className={cn(cellPad, isBorderless && 'border-0')}
-                >
-                  {cell}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </TableBody>
+          </Table>
+        </div>
       </div>
     )
   }
@@ -3272,38 +3274,40 @@ function ComponentPreview({
       tabVariant === 'bordered' && '!bg-transparent !rounded-none border-b border-border',
     )
     const triggerClass = cn(
-      tabVariant === 'underline' && 'border-0 border-b-2 border-transparent rounded-none shadow-none px-1 pb-2 data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground',
+      tabVariant === 'underline' && '!border-0 !border-b-2 !border-transparent !rounded-none !shadow-none px-1 pb-2 data-[state=active]:!border-b-2 data-[state=active]:border-x-0 data-[state=active]:border-t-0 data-[state=active]:border-b-primary data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:text-foreground',
       tabVariant === 'pill' && '!rounded-full',
       tabVariant === 'bordered' && 'border border-transparent rounded-t-md data-[state=active]:!bg-background data-[state=active]:border-border',
     )
     return (
-      <Tabs defaultValue="tab0" className="w-[320px]">
-        <TabsList className={listClass}>
-          {tabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
-              {tab.label}
-            </TabsTrigger>
+      <div className="flex w-full justify-center">
+        <Tabs defaultValue="tab0" className="w-[320px]">
+          <TabsList className={listClass}>
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {tabs.map((tab, i) => (
+            <TabsContent key={tab.value} value={tab.value} className="text-sm text-muted-foreground pt-2">
+              {(props[`tab${i}Content`] as string) ?? `Content for ${tab.label}.`}
+            </TabsContent>
           ))}
-        </TabsList>
-        {tabs.map((tab, i) => (
-          <TabsContent key={tab.value} value={tab.value} className="text-sm text-muted-foreground pt-2">
-            {(props[`tab${i}Content`] as string) ?? `Content for ${tab.label}.`}
-          </TabsContent>
-        ))}
-      </Tabs>
+        </Tabs>
+      </div>
     )
   }
 
   if (name === 'Textarea') {
     const taResize = (props.resize as string) ?? 'vertical'
     const taRows = (props.rows as number) ?? 4
-    const taBg = (props.bgColor as string) ?? ''
-    const taBorder = (props.borderColor as string) ?? ''
-    const taText = (props.textColor as string) ?? ''
+    const taBg = (props.bgColor as string) || ''
+    const taBorder = (props.borderColor as string) || ''
+    const taText = (props.textColor as string) || ''
     const taRadius = props.borderRadius !== undefined ? `${props.borderRadius as number}px` : undefined
     const taPad = props.padding !== undefined ? `${props.padding as number}px` : undefined
-    const taFontSize = (props.fontSize as string) ?? '14px'
-    const taFontWeight = (props.fontWeight as string) ?? '400'
+    const taFontSize = (props.fontSize as string) || undefined
+    const taFontWeight = (props.fontWeight as string) || undefined
     const taDisabled = (props.disabled as boolean) ?? false
     const taReadOnly = (props.readOnly as boolean) ?? false
     const taError = (props.error as boolean) ?? false
@@ -3317,9 +3321,9 @@ function ComponentPreview({
         className={cn('w-[280px]', taError && 'border-destructive focus-visible:ring-destructive')}
         style={{
           resize: resizeMap[taResize] as React.CSSProperties['resize'],
-          backgroundColor: taBg || 'hsl(var(--background))',
-          ...(taBorder ? { borderColor: taBorder } : {}),
-          color: taText || 'hsl(var(--foreground))',
+          backgroundColor: taBg || undefined,
+          borderColor: taBorder || undefined,
+          color: taText || undefined,
           ...(taRadius !== undefined ? { borderRadius: taRadius } : {}),
           ...(taPad !== undefined ? { padding: taPad } : {}),
           fontSize: taFontSize,
@@ -3378,8 +3382,8 @@ function ComponentPreview({
           <TooltipContent
             side={tooltipSide}
             style={{
-              backgroundColor: (props.bgColor as string) || 'hsl(var(--popover))',
-              color: (props.textColor as string) || 'hsl(var(--popover-foreground))',
+              backgroundColor: (props.bgColor as string) || undefined,
+              color: (props.textColor as string) || undefined,
               borderRadius: tooltipRadius,
             }}
           >
@@ -3397,7 +3401,7 @@ function ComponentPreview({
     const bcFontSize = (props.fontSize as number) ?? 14
     const fontWeightMap: Record<string, string> = { normal: '400', medium: '500', semibold: '600' }
     const bcFontWeight = fontWeightMap[(props.fontWeight as string) ?? 'medium'] ?? '500'
-    const bcLinkColor = (props.linkColor as string) || undefined
+    const bcLinkColor = (props.linkColor as string) || 'var(--primary)'
     const bcActiveColor = (props.activeColor as string) || undefined
     const bcSepColor = (props.separatorColor as string) || undefined
     const allItems = Array.from({ length: bcItemCount }, (_, i) =>
@@ -3421,7 +3425,7 @@ function ComponentPreview({
               ) : i === visibleItems.length - 1 ? (
                 <BreadcrumbPage style={{ fontWeight: bcFontWeight, color: bcActiveColor }}>{item}</BreadcrumbPage>
               ) : (
-                <BreadcrumbLink style={{ color: bcLinkColor || 'hsl(var(--primary))' }}>{item}</BreadcrumbLink>
+                <BreadcrumbLink style={{ color: bcLinkColor || 'var(--primary)' }}>{item}</BreadcrumbLink>
               )}
               {i < visibleItems.length - 1 && (
                 <BreadcrumbSeparator style={{ color: bcSepColor }}>
@@ -3441,7 +3445,7 @@ function ComponentPreview({
   if (name === 'Button Group') {
     const bgButtons = Array.from({ length: (props.buttonCount as number) ?? 3 })
     const bgRadius = (props.borderRadius as number) ?? globalRadius
-    const bgActiveColor = (props.activeColor as string) || undefined
+    const bgActiveColor = (props.activeColor as string) || 'var(--primary)'
     const bgActiveTextColor = (props.activeTextColor as string) || undefined
     const bgInactiveColor = (props.inactiveColor as string) || undefined
     const bgBorderColor = (props.borderColor as string) || undefined
@@ -3471,7 +3475,7 @@ function ComponentPreview({
                 marginLeft: !isFirst ? '-1px' : undefined,
                 backgroundColor: isActive ? (bgActiveColor ?? CSS_PRIMARY) : bgInactiveColor,
                 color: isActive ? (bgActiveTextColor ?? CSS_PRIMARY_FG) : undefined,
-                borderColor: bgBorderColor,
+                borderColor: isActive ? (bgActiveColor ?? CSS_PRIMARY) : bgBorderColor,
                 zIndex: isActive ? 10 : undefined,
               }}
             >
@@ -3489,10 +3493,10 @@ function ComponentPreview({
     const sbWidth = sbCollapsed ? 56 : (props.width as number) ?? 220
     const sbItemCount = (props.itemCount as number) ?? 4
     const sbStyle = (props.style as string) ?? 'default'
-    const sbBg = (props.bgColor as string) || 'hsl(var(--background))'
+    const sbBg = (props.bgColor as string) || undefined
     const sbActiveColor = (props.activeColor as string) ?? undefined
     const sbBorderColor = (props.borderColor as string) || undefined
-    const sbTextColor = (props.textColor as string) || 'hsl(var(--foreground))'
+    const sbTextColor = (props.textColor as string) || undefined
     const sbRadius = (props.borderRadius as number) ?? globalRadius
     const defaultLabels = ['Dashboard', 'Projects', 'Components', 'Settings', 'Analytics', 'Help']
     const defaultIconNames = ['LayoutDashboard', 'FolderOpen', 'Box', 'Settings', 'BarChart2', 'HelpCircle']
@@ -3531,7 +3535,7 @@ function ComponentPreview({
                     paddingRight: '8px',
                     borderRadius: `${sbRadius}px`,
                     backgroundColor: isActive
-                      ? (sbActiveColor ? `${sbActiveColor}22` : 'hsl(var(--primary) / 0.1)')
+                      ? (sbActiveColor ? `${sbActiveColor}22` : 'color-mix(in oklch, var(--primary) 10%, transparent)')
                       : undefined,
                     color: isActive ? (sbActiveColor ?? CSS_PRIMARY) : (sbTextColor ?? undefined),
                     fontWeight: isActive ? '500' : undefined,
@@ -3573,10 +3577,10 @@ function ComponentPreview({
     ]
     const barLayout = (props.layout as string) ?? 'vertical'
     const barRad = (props.barRadius as number) ?? 4
-    const barColor = (props.barColor as string) ?? 'hsl(var(--primary))'
+    const barColor = (props.barColor as string) ?? 'var(--primary)'
     const bar2Color = (props.bar2Color as string) || '#94a3b8'
     const gridColor = (props.gridColor as string) || undefined
-    const bgColor = (props.bgColor as string) || 'hsl(var(--background))'
+    const bgColor = (props.bgColor as string) || undefined
     const showGrid = (props.showGrid as boolean) ?? false
     const showSecondSeries = (props.showSecondSeries as boolean) ?? false
     const series1Label = (props.series1Label as string) ?? 'Series 1'
@@ -3584,27 +3588,27 @@ function ComponentPreview({
     const isHorizontal = barLayout === 'horizontal'
     return (
       <div className="flex items-center justify-center w-full">
-      <div className="w-[380px] h-[260px] rounded-lg overflow-hidden" style={{ backgroundColor: bgColor }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={barData} layout={isHorizontal ? 'vertical' : 'horizontal'}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
-            <XAxis
-              dataKey={isHorizontal ? undefined : 'name'}
-              type={isHorizontal ? 'number' : 'category'}
-              tick={{ fontSize: 11 }}
-            />
-            <YAxis
-              dataKey={isHorizontal ? 'name' : undefined}
-              type={isHorizontal ? 'category' : 'number'}
-              tick={{ fontSize: 11 }}
-            />
-            {props.showTooltip !== false && <RechartsTooltip />}
-            {props.showLegend && <Legend />}
-            <Bar dataKey="value" name={series1Label} fill={barColor} radius={barRad} />
-            {showSecondSeries && <Bar dataKey="value2" name={series2Label} fill={bar2Color} radius={barRad} />}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+        <div className="w-[520px] max-w-full h-[260px] rounded-lg overflow-hidden" style={{ backgroundColor: bgColor }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={barData} layout={isHorizontal ? 'vertical' : 'horizontal'}>
+              {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
+              <XAxis
+                dataKey={isHorizontal ? undefined : 'name'}
+                type={isHorizontal ? 'number' : 'category'}
+                tick={{ fontSize: 11 }}
+              />
+              <YAxis
+                dataKey={isHorizontal ? 'name' : undefined}
+                type={isHorizontal ? 'category' : 'number'}
+                tick={{ fontSize: 11 }}
+              />
+              {props.showTooltip !== false && <RechartsTooltip />}
+              {props.showLegend && <Legend />}
+              <Bar dataKey="value" name={series1Label} fill={barColor} radius={barRad} />
+              {showSecondSeries && <Bar dataKey="value2" name={series2Label} fill={bar2Color} radius={barRad} />}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     )
   }
@@ -3618,7 +3622,7 @@ function ComponentPreview({
       { name: 'May', value: 500, value2: 290 },
       { name: 'Jun', value: 900, value2: 480 },
     ]
-    const lineColor = (props.lineColor as string) ?? 'hsl(var(--primary))'
+    const lineColor = (props.lineColor as string) ?? 'var(--primary)'
     const line2Color = (props.line2Color as string) || '#94a3b8'
     const gridColor = (props.gridColor as string) || undefined
     const filled = (props.filled as boolean) ?? false
@@ -3631,31 +3635,31 @@ function ComponentPreview({
     const series2Label = (props.series2Label as string) ?? 'Series 2'
     return (
       <div className="flex items-center justify-center w-full">
-      <div className="w-[380px] h-[260px]">
-        <ResponsiveContainer width="100%" height="100%">
-          {filled ? (
-            <AreaChart data={lineData}>
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
-              {props.showTooltip !== false && <RechartsTooltip />}
-              {props.showLegend && <Legend />}
-              <Area type={curve} dataKey="value" name={series1Label} stroke={lineColor} fill={lineColor} fillOpacity={0.2} strokeWidth={strokeW} dot={showDots} />
-              {showSecondSeries && <Area type={curve} dataKey="value2" name={series2Label} stroke={line2Color} fill={line2Color} fillOpacity={0.2} strokeWidth={strokeW} dot={showDots} />}
-            </AreaChart>
-          ) : (
-            <LineChart data={lineData}>
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
-              {props.showTooltip !== false && <RechartsTooltip />}
-              {props.showLegend && <Legend />}
-              <Line type={curve} dataKey="value" name={series1Label} stroke={lineColor} strokeWidth={strokeW} dot={showDots} />
-              {showSecondSeries && <Line type={curve} dataKey="value2" name={series2Label} stroke={line2Color} strokeWidth={strokeW} dot={showDots} />}
-            </LineChart>
-          )}
-        </ResponsiveContainer>
-      </div>
+        <div className="w-[520px] max-w-full h-[260px]">
+          <ResponsiveContainer width="100%" height="100%">
+            {filled ? (
+              <AreaChart data={lineData}>
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
+                {props.showTooltip !== false && <RechartsTooltip />}
+                {props.showLegend && <Legend />}
+                <Area type={curve} dataKey="value" name={series1Label} stroke={lineColor} fill={lineColor} fillOpacity={0.2} strokeWidth={strokeW} dot={showDots} />
+                {showSecondSeries && <Area type={curve} dataKey="value2" name={series2Label} stroke={line2Color} fill={line2Color} fillOpacity={0.2} strokeWidth={strokeW} dot={showDots} />}
+              </AreaChart>
+            ) : (
+              <LineChart data={lineData}>
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
+                {props.showTooltip !== false && <RechartsTooltip />}
+                {props.showLegend && <Legend />}
+                <Line type={curve} dataKey="value" name={series1Label} stroke={lineColor} strokeWidth={strokeW} dot={showDots} />
+                {showSecondSeries && <Line type={curve} dataKey="value2" name={series2Label} stroke={line2Color} strokeWidth={strokeW} dot={showDots} />}
+              </LineChart>
+            )}
+          </ResponsiveContainer>
+        </div>
       </div>
     )
   }

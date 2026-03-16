@@ -123,7 +123,7 @@
 }
 
 *:hover {
-  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -142,11 +142,11 @@
 }
 
 *:hover::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
+  background: var(--border);
 }
 
 .switch-colored[data-state="checked"] {
-  background-color: var(--switch-color, hsl(var(--primary))) !important;
+  background-color: var(--switch-color, var(--primary)) !important;
 }
 
 .checkbox-colored[data-state="checked"] {

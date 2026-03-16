@@ -17,7 +17,11 @@
       "Bash(npx shadcn@latest add checkbox --overwrite --yes)",
       "Bash(npx shadcn@latest add calendar --yes)",
       "Bash(npx shadcn@latest add toast --yes)",
-      "Bash(npx shadcn@latest add breadcrumb --yes)"
+      "Bash(npx shadcn@latest add breadcrumb --yes)",
+      "Bash(grep -n \"name === ''Table''\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
+      "Bash(grep -n \"|| ''hsl\\(var\\(\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
+      "Bash(sort -t: -k1,1)",
+      "Bash(awk 'NR>=2669 && NR<=3670' /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)"
     ]
   }
 }
