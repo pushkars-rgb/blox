@@ -28,7 +28,8 @@
       "Bash(ls /Users/bsf/Downloads/BSF/Blox/src/components/ui/input-otp*)",
       "Bash(npx shadcn@latest add input-otp --yes)",
       "Bash(ls /Users/bsf/Downloads/BSF/Blox/src/components/ui/pagination*)",
-      "Bash(npx shadcn@latest add pagination --yes)"
+      "Bash(npx shadcn@latest add pagination --yes)",
+      "Bash(grep -n \"component === ''Spinner''\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)"
     ]
   }
 }

@@ -5,7 +5,6 @@ import {
   type SemanticTokenKey,
   type SemanticTokens,
   type TokenPreset,
-  type CuratedColor,
   type TailwindFamily,
   DEFAULT_TOKENS,
   TOKEN_KEYS,
@@ -53,7 +52,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp'
 import { Label } from '@/components/ui/label'
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -133,7 +131,7 @@ type InspectorSharedProps = {
 
 const defaultPadding: PaddingValue = { top: 8, right: 16, bottom: 8, left: 16 }
 
-type LucideIconComp = React.ComponentType<{ size?: number; className?: string }>
+type LucideIconComp = React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>
 
 type HealthIssue = {
   id: string
@@ -185,14 +183,6 @@ function IconError({ size = 22, className }: { size?: number; className?: string
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
       <path d="M10 1.875C8.39303 1.875 6.82214 2.35152 5.486 3.24431C4.14985 4.1371 3.10844 5.40605 2.49348 6.8907C1.87852 8.37535 1.71762 10.009 2.03112 11.5851C2.34463 13.1612 3.11846 14.6089 4.25476 15.7452C5.39106 16.8815 6.8388 17.6554 8.41489 17.9689C9.99099 18.2824 11.6247 18.1215 13.1093 17.5065C14.594 16.8916 15.8629 15.8502 16.7557 14.514C17.6485 13.1779 18.125 11.607 18.125 10C18.1227 7.84581 17.266 5.78051 15.7427 4.25727C14.2195 2.73403 12.1542 1.87727 10 1.875ZM12.9422 12.0578C13.0003 12.1159 13.0463 12.1848 13.0777 12.2607C13.1092 12.3366 13.1254 12.4179 13.1254 12.5C13.1254 12.5821 13.1092 12.6634 13.0777 12.7393C13.0463 12.8152 13.0003 12.8841 12.9422 12.9422C12.8841 13.0003 12.8152 13.0463 12.7393 13.0777C12.6634 13.1092 12.5821 13.1253 12.5 13.1253C12.4179 13.1253 12.3366 13.1092 12.2607 13.0777C12.1848 13.0463 12.1159 13.0003 12.0578 12.9422L10 10.8836L7.94219 12.9422C7.88412 13.0003 7.81518 13.0463 7.73931 13.0777C7.66344 13.1092 7.58213 13.1253 7.5 13.1253C7.41788 13.1253 7.33656 13.1092 7.26069 13.0777C7.18482 13.0463 7.11588 13.0003 7.05782 12.9422C6.99975 12.8841 6.95368 12.8152 6.92226 12.7393C6.89083 12.6634 6.87466 12.5821 6.87466 12.5C6.87466 12.4179 6.89083 12.3366 6.92226 12.2607C6.95368 12.1848 6.99975 12.1159 7.05782 12.0578L9.11641 10L7.05782 7.94219C6.94054 7.82491 6.87466 7.66585 6.87466 7.5C6.87466 7.33415 6.94054 7.17509 7.05782 7.05781C7.17509 6.94054 7.33415 6.87465 7.5 6.87465C7.66586 6.87465 7.82492 6.94054 7.94219 7.05781L10 9.11641L12.0578 7.05781C12.1159 6.99974 12.1848 6.95368 12.2607 6.92225C12.3366 6.89083 12.4179 6.87465 12.5 6.87465C12.5821 6.87465 12.6634 6.89083 12.7393 6.92225C12.8152 6.95368 12.8841 6.99974 12.9422 7.05781C13.0003 7.11588 13.0463 7.18482 13.0777 7.26069C13.1092 7.33656 13.1254 7.41788 13.1254 7.5C13.1254 7.58212 13.1092 7.66344 13.0777 7.73931C13.0463 7.81518 13.0003 7.88412 12.9422 7.94219L10.8836 10L12.9422 12.0578Z" fill="#DC2626"/>
-    </svg>
-  )
-}
-
-function IconInfo({ size = 22, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <path d="M10 1.875C8.39303 1.875 6.82214 2.35152 5.486 3.24431C4.14985 4.1371 3.10844 5.40605 2.49348 6.8907C1.87852 8.37535 1.71762 10.009 2.03112 11.5851C2.34463 13.1612 3.11846 14.6089 4.25476 15.7452C5.39106 16.8815 6.8388 17.6554 8.41489 17.9689C9.99099 18.2824 11.6247 18.1215 13.1093 17.5065C14.594 16.8916 15.8629 15.8502 16.7557 14.514C17.6485 13.1779 18.125 11.607 18.125 10C18.1227 7.84581 17.266 5.78051 15.7427 4.25727C14.2195 2.73403 12.1542 1.87727 10 1.875ZM9.6875 5.625C9.87292 5.625 10.0542 5.67998 10.2084 5.783C10.3625 5.88601 10.4827 6.03243 10.5536 6.20373C10.6246 6.37504 10.6432 6.56354 10.607 6.7454C10.5708 6.92725 10.4815 7.0943 10.3504 7.22541C10.2193 7.35652 10.0523 7.44581 9.8704 7.48199C9.68854 7.51816 9.50004 7.49959 9.32874 7.42864C9.15743 7.35768 9.01101 7.23752 8.908 7.08335C8.80499 6.92918 8.75 6.74792 8.75 6.5625C8.75 6.31386 8.84878 6.0754 9.02459 5.89959C9.20041 5.72377 9.43886 5.625 9.6875 5.625ZM10.625 14.375C10.2935 14.375 9.97554 14.2433 9.74112 14.0089C9.5067 13.7745 9.375 13.4565 9.375 13.125V10C9.20924 10 9.05027 9.93415 8.93306 9.81694C8.81585 9.69973 8.75 9.54076 8.75 9.375C8.75 9.20924 8.81585 9.05027 8.93306 8.93306C9.05027 8.81585 9.20924 8.75 9.375 8.75C9.70652 8.75 10.0245 8.8817 10.2589 9.11612C10.4933 9.35054 10.625 9.66848 10.625 10V13.125C10.7908 13.125 10.9497 13.1908 11.0669 13.3081C11.1842 13.4253 11.25 13.5842 11.25 13.75C11.25 13.9158 11.1842 14.0747 11.0669 14.1919C10.9497 14.3092 10.7908 14.375 10.625 14.375Z" fill="#0284C7"/>
     </svg>
   )
 }
@@ -459,7 +449,6 @@ function generateTSX(
     }
   }
   if (component === 'Spinner') {
-    const variant = (props.variant as string) ?? 'border'
     const size = (props.size as string) ?? 'md'
     const label = (props.label as string) ?? ''
     const sizeMap: Record<string, string> = { xs: '12px', sm: '16px', md: '24px', lg: '32px', xl: '48px' }
@@ -960,7 +949,7 @@ function GlobalSettingsSection({
 
 // ─── Per-component inspector sections ────────────────────────────────────────
 
-function ButtonSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function ButtonSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const variant = (props.variant as string) ?? 'default'
   const size = (props.size as string) ?? 'default'
   const shadow = (props.shadow as string) ?? 'none'
@@ -1131,7 +1120,7 @@ const BADGE_SIZE_PRESETS: Record<string, { fontSize: number; padding: PaddingVal
   lg: { fontSize: 14, padding: { top: 4, right: 14, bottom: 4, left: 14 }, height: 26 },
 }
 
-function BadgeSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function BadgeSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const variant = (props.variant as string) ?? 'default'
   const size = (props.size as string) ?? 'md'
   const fontWeight = (props.fontWeight as string) ?? '500'
@@ -1265,7 +1254,7 @@ function BadgeSections({ props, updateProp, paletteColors, primaryColor, globalR
   )
 }
 
-function InputSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function InputSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   return (
     <>
       <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
@@ -1457,7 +1446,7 @@ function InputOTPSections({ props, updateProp, paletteColors, globalRadius, onCh
   )
 }
 
-function CardSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function CardSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const shadow = (props.shadow as string) ?? 'none'
 
   return (
@@ -1727,7 +1716,7 @@ function AlertSections({ props, updateProp, paletteColors, globalRadius, onChang
   )
 }
 
-function AvatarSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function AvatarSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const size = (props.size as string) ?? 'default'
   const shape = (props.shape as string) ?? 'circle'
   const contentType = (props.type as string) ?? 'initials'
@@ -2071,7 +2060,7 @@ function CalendarSections({ props, updateProp, paletteColors, primaryColor, glob
   )
 }
 
-function TabsSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function TabsSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const variant = (props.variant as string) ?? 'default'
   const tabCount = (props.tabCount as number) ?? 3
   return (
@@ -2850,7 +2839,7 @@ function PaginationSections({ props, updateProp, paletteColors, globalRadius, on
   )
 }
 
-function ProgressSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function ProgressSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const progressSize = (props.size as string) ?? 'default'
   const progressStyle = (props.style as string) ?? 'default'
   return (
@@ -3149,7 +3138,7 @@ function SliderSections({ props, updateProp, paletteColors, primaryColor, global
   )
 }
 
-function ToggleSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function ToggleSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const variant = (props.variant as string) ?? 'default'
   const toggleSize = (props.size as string) ?? 'default'
   const iconPosition = (props.iconPosition as string) ?? 'leading'
@@ -3263,7 +3252,7 @@ function TooltipSections({ props, updateProp, paletteColors, globalRadius, onCha
   )
 }
 
-function BreadcrumbSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function BreadcrumbSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const itemCount = (props.itemCount as number) ?? 3
   const sepStyle = (props.separatorStyle as string) ?? 'slash'
   const fontSize = (props.fontSize as number) ?? 14
@@ -3818,47 +3807,47 @@ function ComponentPreview({
       ghost:     'hover:bg-transparent px-1',
     }
 
-    return (
-      <Accordion
-        type={multiple ? 'multiple' : 'single'}
-        collapsible={!multiple}
-        defaultValue="item-0"
-        className="w-[340px]"
-        style={{ backgroundColor: bgColor, borderRadius: radius }}
-      >
-        {Array.from({ length: itemCount }, (_, i) => {
-          const LeadingIcon = props[`item${i}LeadingIcon`]
-            ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props[`item${i}LeadingIcon`] as string] ?? null
-            : null
-          const TrailingIcon = props[`item${i}TrailingIcon`]
-            ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props[`item${i}TrailingIcon`] as string] ?? null
-            : null
-          return (
-            <AccordionItem
-              key={i}
-              value={`item-${i}`}
-              className={variantItemClass[acVariant]}
-              style={{ borderColor, borderRadius: acVariant === 'separated' ? radius : undefined }}
-            >
-              <AccordionTrigger
-                className={cn('py-3 text-sm font-medium flex-row-reverse justify-end gap-2', variantTriggerClass[acVariant], chevronSide === 'right' && 'flex-row justify-between')}
-                style={{ color: triggerColor }}
-              >
-                <span className="flex items-center gap-2 min-w-0">
-                  {LeadingIcon && <LeadingIcon size={15} className="shrink-0" />}
-                  <span>{(props[`item${i}Title`] as string) ?? `Section ${i + 1}`}</span>
-                </span>
-                {TrailingIcon && <TrailingIcon size={15} className="shrink-0 ml-auto mr-1" />}
-              </AccordionTrigger>
-              <AccordionContent
-                className={cn(acVariant === 'separated' || acVariant === 'bordered' ? 'px-3' : 'px-1')}
-                style={{ color: contentColor }}
-              >
-                {(props[`item${i}Content`] as string) ?? 'Content goes here.'}
-              </AccordionContent>
-            </AccordionItem>
-          )
-        })}
+    const accordionItems = Array.from({ length: itemCount }, (_, i) => {
+      const LeadingIcon = props[`item${i}LeadingIcon`]
+        ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props[`item${i}LeadingIcon`] as string] ?? null
+        : null
+      const TrailingIcon = props[`item${i}TrailingIcon`]
+        ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props[`item${i}TrailingIcon`] as string] ?? null
+        : null
+      return (
+        <AccordionItem
+          key={i}
+          value={`item-${i}`}
+          className={variantItemClass[acVariant]}
+          style={{ borderColor, borderRadius: acVariant === 'separated' ? radius : undefined }}
+        >
+          <AccordionTrigger
+            className={cn('py-3 text-sm font-medium flex-row-reverse justify-end gap-2', variantTriggerClass[acVariant], chevronSide === 'right' && 'flex-row justify-between')}
+            style={{ color: triggerColor }}
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              {LeadingIcon && <LeadingIcon size={15} className="shrink-0" />}
+              <span>{(props[`item${i}Title`] as string) ?? `Section ${i + 1}`}</span>
+            </span>
+            {TrailingIcon && <TrailingIcon size={15} className="shrink-0 ml-auto mr-1" />}
+          </AccordionTrigger>
+          <AccordionContent
+            className={cn(acVariant === 'separated' || acVariant === 'bordered' ? 'px-3' : 'px-1')}
+            style={{ color: contentColor }}
+          >
+            {(props[`item${i}Content`] as string) ?? 'Content goes here.'}
+          </AccordionContent>
+        </AccordionItem>
+      )
+    })
+    const accordionSharedProps = { className: 'w-[340px]', style: { backgroundColor: bgColor, borderRadius: radius } }
+    return multiple ? (
+      <Accordion type="multiple" defaultValue={['item-0']} {...accordionSharedProps}>
+        {accordionItems}
+      </Accordion>
+    ) : (
+      <Accordion type="single" collapsible defaultValue="item-0" {...accordionSharedProps}>
+        {accordionItems}
       </Accordion>
     )
   }
@@ -3951,7 +3940,8 @@ function ComponentPreview({
       warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
       info:    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
     }
-    const shadcnBadgeVariant: BadgeVariant = ['success', 'warning', 'info'].includes(badgeVariant) ? 'outline' : badgeVariant
+    type ShadcnBadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
+    const shadcnBadgeVariant: ShadcnBadgeVariant = ['success', 'warning', 'info'].includes(badgeVariant) ? 'outline' : badgeVariant as ShadcnBadgeVariant
     return (
       <Badge
         variant={shadcnBadgeVariant}
