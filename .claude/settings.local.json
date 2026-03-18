@@ -22,7 +22,13 @@
       "Bash(grep -n \"|| ''hsl\\(var\\(\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
       "Bash(sort -t: -k1,1)",
       "Bash(awk 'NR>=2669 && NR<=3670' /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"const l = require\\(''./node_modules/lucide-react''\\); const keys = Object.keys\\(l\\); console.log\\(''Total exports:'', keys.length\\); console.log\\(''Sample keys:'', keys.slice\\(0, 10\\)\\); const fns = keys.filter\\(k => /^[A-Z]/.test\\(k\\) && typeof l[k] === ''function''\\); console.log\\(''Function icons:'', fns.length\\); const objs = keys.filter\\(k => /^[A-Z]/.test\\(k\\) && typeof l[k] === ''object''\\); console.log\\(''Object icons:'', objs.length\\);\")",
+      "Bash(npx shadcn@latest add accordion --yes)",
+      "Bash(ls /Users/bsf/Downloads/BSF/Blox/src/components/ui/input-otp*)",
+      "Bash(npx shadcn@latest add input-otp --yes)",
+      "Bash(ls /Users/bsf/Downloads/BSF/Blox/src/components/ui/pagination*)",
+      "Bash(npx shadcn@latest add pagination --yes)"
     ]
   }
 }

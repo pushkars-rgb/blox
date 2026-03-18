@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useProjectTokens, hexToOklch } from '@/hooks/useProjectTokens'
 import {
@@ -6,6 +6,7 @@ import {
   type SemanticTokens,
   type TokenPreset,
   type CuratedColor,
+  type TailwindFamily,
   DEFAULT_TOKENS,
   TOKEN_KEYS,
   TOKEN_LABELS,
@@ -13,10 +14,12 @@ import {
   TOKEN_CSS_VARS,
   TOKEN_PRESETS,
   CURATED_COLORS,
+  TAILWIND_PALETTE,
   injectSemanticTokens,
 } from '@/lib/tokens'
 import * as LucideIcons from 'lucide-react'
 import IconPicker from '@/components/IconPicker'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -50,7 +53,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp'
 import { Label } from '@/components/ui/label'
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -108,7 +113,7 @@ import {
 import { cn } from '@/lib/utils'
 import ColorPicker from '@/components/ColorPicker'
 import { type Project } from '@/data/projects'
-import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Loader2, Minus, Plus } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Loader2, Minus, Plus, RotateCcw } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -130,6 +135,24 @@ const defaultPadding: PaddingValue = { top: 8, right: 16, bottom: 8, left: 16 }
 
 type LucideIconComp = React.ComponentType<{ size?: number; className?: string }>
 
+type HealthIssue = {
+  id: string
+  level: 'warning' | 'error'
+  title: string
+  description?: string
+  target?: {
+    type: 'component' | 'token' | 'setting'
+    name: string
+    field?: string
+  }
+}
+
+type HealthReport = {
+  status: 'healthy' | 'warning' | 'error'
+  issues: HealthIssue[]
+  summary: { errors: number; warnings: number }
+}
+
 // TOKEN_PRESETS, TOKEN_PRESETS, CURATED_COLORS etc. are imported from @/lib/tokens
 
 // ─── CSS var helpers ─────────────────────────────────────────────────────────
@@ -140,14 +163,48 @@ type LucideIconComp = React.ComponentType<{ size?: number; className?: string }>
 const CSS_PRIMARY = 'var(--primary)'
 const CSS_PRIMARY_FG = 'var(--primary-foreground)'
 
+// ─── Status icons ─────────────────────────────────────────────────────────────
+
+function IconSuccess({ size = 22, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path d="M10 1.875C8.39303 1.875 6.82214 2.35152 5.486 3.24431C4.14985 4.1371 3.10844 5.40605 2.49348 6.8907C1.87852 8.37535 1.71762 10.009 2.03112 11.5851C2.34463 13.1612 3.11846 14.6089 4.25476 15.7452C5.39106 16.8815 6.8388 17.6554 8.41489 17.9689C9.99099 18.2824 11.6247 18.1215 13.1093 17.5065C14.594 16.8916 15.8629 15.8502 16.7557 14.514C17.6485 13.1779 18.125 11.607 18.125 10C18.1227 7.84581 17.266 5.78051 15.7427 4.25727C14.2195 2.73403 12.1542 1.87727 10 1.875ZM13.5672 8.56719L9.19219 12.9422C9.13415 13.0003 9.06522 13.0464 8.98934 13.0779C8.91347 13.1093 8.83214 13.1255 8.75 13.1255C8.66787 13.1255 8.58654 13.1093 8.51067 13.0779C8.43479 13.0464 8.36586 13.0003 8.30782 12.9422L6.43282 11.0672C6.31554 10.9499 6.24966 10.7909 6.24966 10.625C6.24966 10.4591 6.31554 10.3001 6.43282 10.1828C6.55009 10.0655 6.70915 9.99965 6.875 9.99965C7.04086 9.99965 7.19992 10.0655 7.31719 10.1828L8.75 11.6164L12.6828 7.68281C12.7409 7.62474 12.8098 7.57868 12.8857 7.54725C12.9616 7.51583 13.0429 7.49965 13.125 7.49965C13.2071 7.49965 13.2884 7.51583 13.3643 7.54725C13.4402 7.57868 13.5091 7.62474 13.5672 7.68281C13.6253 7.74088 13.6713 7.80982 13.7027 7.88569C13.7342 7.96156 13.7504 8.04288 13.7504 8.125C13.7504 8.20712 13.7342 8.28844 13.7027 8.36431C13.6713 8.44018 13.6253 8.50912 13.5672 8.56719Z" fill="#16A34A"/>
+    </svg>
+  )
+}
+
+function IconWarning({ size = 22, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path d="M18.4999 14.6946L11.6678 2.82974C11.4971 2.53906 11.2534 2.29803 10.9608 2.13057C10.6682 1.9631 10.337 1.875 9.99986 1.875C9.66275 1.875 9.33149 1.9631 9.03892 2.13057C8.74635 2.29803 8.50262 2.53906 8.33189 2.82974L1.49986 14.6946C1.33559 14.9757 1.24902 15.2955 1.24902 15.6211C1.24902 15.9468 1.33559 16.2665 1.49986 16.5477C1.6684 16.8401 1.91171 17.0825 2.20483 17.2498C2.49795 17.4172 2.83032 17.5036 3.16783 17.5001H16.8319C17.1691 17.5033 17.5012 17.4168 17.794 17.2494C18.0868 17.0821 18.3299 16.8399 18.4983 16.5477C18.6628 16.2667 18.7496 15.947 18.7499 15.6214C18.7502 15.2957 18.6639 14.9759 18.4999 14.6946ZM9.37486 8.12505C9.37486 7.95929 9.44071 7.80032 9.55792 7.68311C9.67513 7.5659 9.8341 7.50005 9.99986 7.50005C10.1656 7.50005 10.3246 7.5659 10.4418 7.68311C10.559 7.80032 10.6249 7.95929 10.6249 8.12505V11.2501C10.6249 11.4158 10.559 11.5748 10.4418 11.692C10.3246 11.8092 10.1656 11.8751 9.99986 11.8751C9.8341 11.8751 9.67513 11.8092 9.55792 11.692C9.44071 11.5748 9.37486 11.4158 9.37486 11.2501V8.12505ZM9.99986 15.0001C9.81444 15.0001 9.63319 14.9451 9.47901 14.8421C9.32484 14.739 9.20468 14.5926 9.13372 14.4213C9.06277 14.25 9.0442 14.0615 9.08038 13.8797C9.11655 13.6978 9.20584 13.5308 9.33695 13.3996C9.46806 13.2685 9.63511 13.1792 9.81696 13.1431C9.99882 13.1069 10.1873 13.1255 10.3586 13.1964C10.5299 13.2674 10.6764 13.3875 10.7794 13.5417C10.8824 13.6959 10.9374 13.8771 10.9374 14.0626C10.9374 14.3112 10.8386 14.5496 10.6628 14.7255C10.487 14.9013 10.2485 15.0001 9.99986 15.0001Z" fill="#F59E0B"/>
+    </svg>
+  )
+}
+
+function IconError({ size = 22, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path d="M10 1.875C8.39303 1.875 6.82214 2.35152 5.486 3.24431C4.14985 4.1371 3.10844 5.40605 2.49348 6.8907C1.87852 8.37535 1.71762 10.009 2.03112 11.5851C2.34463 13.1612 3.11846 14.6089 4.25476 15.7452C5.39106 16.8815 6.8388 17.6554 8.41489 17.9689C9.99099 18.2824 11.6247 18.1215 13.1093 17.5065C14.594 16.8916 15.8629 15.8502 16.7557 14.514C17.6485 13.1779 18.125 11.607 18.125 10C18.1227 7.84581 17.266 5.78051 15.7427 4.25727C14.2195 2.73403 12.1542 1.87727 10 1.875ZM12.9422 12.0578C13.0003 12.1159 13.0463 12.1848 13.0777 12.2607C13.1092 12.3366 13.1254 12.4179 13.1254 12.5C13.1254 12.5821 13.1092 12.6634 13.0777 12.7393C13.0463 12.8152 13.0003 12.8841 12.9422 12.9422C12.8841 13.0003 12.8152 13.0463 12.7393 13.0777C12.6634 13.1092 12.5821 13.1253 12.5 13.1253C12.4179 13.1253 12.3366 13.1092 12.2607 13.0777C12.1848 13.0463 12.1159 13.0003 12.0578 12.9422L10 10.8836L7.94219 12.9422C7.88412 13.0003 7.81518 13.0463 7.73931 13.0777C7.66344 13.1092 7.58213 13.1253 7.5 13.1253C7.41788 13.1253 7.33656 13.1092 7.26069 13.0777C7.18482 13.0463 7.11588 13.0003 7.05782 12.9422C6.99975 12.8841 6.95368 12.8152 6.92226 12.7393C6.89083 12.6634 6.87466 12.5821 6.87466 12.5C6.87466 12.4179 6.89083 12.3366 6.92226 12.2607C6.95368 12.1848 6.99975 12.1159 7.05782 12.0578L9.11641 10L7.05782 7.94219C6.94054 7.82491 6.87466 7.66585 6.87466 7.5C6.87466 7.33415 6.94054 7.17509 7.05782 7.05781C7.17509 6.94054 7.33415 6.87465 7.5 6.87465C7.66586 6.87465 7.82492 6.94054 7.94219 7.05781L10 9.11641L12.0578 7.05781C12.1159 6.99974 12.1848 6.95368 12.2607 6.92225C12.3366 6.89083 12.4179 6.87465 12.5 6.87465C12.5821 6.87465 12.6634 6.89083 12.7393 6.92225C12.8152 6.95368 12.8841 6.99974 12.9422 7.05781C13.0003 7.11588 13.0463 7.18482 13.0777 7.26069C13.1092 7.33656 13.1254 7.41788 13.1254 7.5C13.1254 7.58212 13.1092 7.66344 13.0777 7.73931C13.0463 7.81518 13.0003 7.88412 12.9422 7.94219L10.8836 10L12.9422 12.0578Z" fill="#DC2626"/>
+    </svg>
+  )
+}
+
+function IconInfo({ size = 22, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path d="M10 1.875C8.39303 1.875 6.82214 2.35152 5.486 3.24431C4.14985 4.1371 3.10844 5.40605 2.49348 6.8907C1.87852 8.37535 1.71762 10.009 2.03112 11.5851C2.34463 13.1612 3.11846 14.6089 4.25476 15.7452C5.39106 16.8815 6.8388 17.6554 8.41489 17.9689C9.99099 18.2824 11.6247 18.1215 13.1093 17.5065C14.594 16.8916 15.8629 15.8502 16.7557 14.514C17.6485 13.1779 18.125 11.607 18.125 10C18.1227 7.84581 17.266 5.78051 15.7427 4.25727C14.2195 2.73403 12.1542 1.87727 10 1.875ZM9.6875 5.625C9.87292 5.625 10.0542 5.67998 10.2084 5.783C10.3625 5.88601 10.4827 6.03243 10.5536 6.20373C10.6246 6.37504 10.6432 6.56354 10.607 6.7454C10.5708 6.92725 10.4815 7.0943 10.3504 7.22541C10.2193 7.35652 10.0523 7.44581 9.8704 7.48199C9.68854 7.51816 9.50004 7.49959 9.32874 7.42864C9.15743 7.35768 9.01101 7.23752 8.908 7.08335C8.80499 6.92918 8.75 6.74792 8.75 6.5625C8.75 6.31386 8.84878 6.0754 9.02459 5.89959C9.20041 5.72377 9.43886 5.625 9.6875 5.625ZM10.625 14.375C10.2935 14.375 9.97554 14.2433 9.74112 14.0089C9.5067 13.7745 9.375 13.4565 9.375 13.125V10C9.20924 10 9.05027 9.93415 8.93306 9.81694C8.81585 9.69973 8.75 9.54076 8.75 9.375C8.75 9.20924 8.81585 9.05027 8.93306 8.93306C9.05027 8.81585 9.20924 8.75 9.375 8.75C9.70652 8.75 10.0245 8.8817 10.2589 9.11612C10.4933 9.35054 10.625 9.66848 10.625 10V13.125C10.7908 13.125 10.9497 13.1908 11.0669 13.3081C11.1842 13.4253 11.25 13.5842 11.25 13.75C11.25 13.9158 11.1842 14.0747 11.0669 14.1919C10.9497 14.3092 10.7908 14.375 10.625 14.375Z" fill="#0284C7"/>
+    </svg>
+  )
+}
+
 // ─── Component list ───────────────────────────────────────────────────────────
 
 const COMPONENTS = [
-  'Alert', 'Avatar', 'Badge', 'Bar Chart', 'Breadcrumb', 'Button', 'Button Group',
+  'Accordion', 'Alert', 'Avatar', 'Badge', 'Bar Chart', 'Breadcrumb', 'Button', 'Button Group',
   'Calendar', 'Card', 'Checkbox',
-  'Dialog', 'Dropdown Menu', 'Input', 'Label', 'Line Chart', 'Popover', 'Progress',
-  'Radio Group', 'Select', 'Separator', 'Sheet', 'Sidebar', 'Skeleton', 'Slider',
-  'Switch', 'Table', 'Tabs', 'Textarea', 'Toast', 'Toggle', 'Tooltip',
+  'Dialog', 'Dropdown Menu', 'Dropzone', 'Input', 'Input OTP', 'Label', 'Line Chart', 'Popover', 'Progress',
+  'Pagination', 'Radio Group', 'Select', 'Separator', 'Sheet', 'Sidebar', 'Skeleton', 'Slider',
+  'Spinner', 'Switch', 'Table', 'Tabs', 'Textarea', 'Toast', 'Toggle', 'Tooltip',
 ]
 
 // ─── Component variants ──────────────────────────────────────────────────────
@@ -156,16 +213,21 @@ const COMPONENTS = [
 // to single preview. Values must be valid prop values for that component.
 
 const COMPONENT_VARIANTS: Record<string, { prop: string; values: (string | boolean | number)[] }> = {
-  Alert:          { prop: 'variant',        values: ['default', 'destructive'] },
+  Accordion:      { prop: 'variant',        values: ['default', 'separated', 'bordered', 'ghost'] },
+  Alert:          { prop: 'variant',        values: ['default', 'destructive', 'success', 'warning', 'info'] },
   Avatar:         { prop: 'size',           values: ['sm', 'default', 'lg', 'xl'] },
-  Badge:          { prop: 'variant',        values: ['default', 'secondary', 'outline', 'destructive'] },
+  Badge:          { prop: 'variant',        values: ['default', 'secondary', 'outline', 'destructive', 'success', 'warning', 'info'] },
   Breadcrumb:     { prop: 'separatorStyle', values: ['slash', 'chevron', 'dot'] },
+  Dropzone:       { prop: 'variant',        values: ['default', 'active', 'success', 'error'] },
+  'Input OTP':    { prop: 'slotStyle',      values: ['bordered', 'filled', 'underline'] },
   Button:         { prop: 'variant',        values: ['default', 'secondary', 'outline', 'ghost', 'link', 'destructive'] },
+  Pagination:     { prop: 'variant',        values: ['default', 'filled', 'minimal', 'rounded'] },
   Progress:       { prop: 'size',           values: ['sm', 'default', 'lg'] },
   'Radio Group':  { prop: 'orientation',    values: ['vertical', 'horizontal'] },
   Select:         { prop: 'size',           values: ['sm', 'default', 'lg'] },
   Separator:      { prop: 'orientation',    values: ['horizontal', 'vertical'] },
   Skeleton:       { prop: 'preset',         values: ['text-lines', 'card', 'avatar-row', 'form'] },
+  Spinner:        { prop: 'variant',        values: ['border', 'dots', 'bars', 'pulse'] },
   Switch:         { prop: 'checked',        values: [false, true] },
   Tabs:           { prop: 'variant',        values: ['default', 'underline', 'pill', 'bordered'] },
   Toggle:         { prop: 'variant',        values: ['default', 'outline'] },
@@ -192,12 +254,21 @@ const COMPONENT_STATES: Record<string, StateEntry[]> = {
     { label: 'Secondary',   propsOverride: { variant: 'secondary' } },
     { label: 'Outline',     propsOverride: { variant: 'outline' } },
     { label: 'Destructive', propsOverride: { variant: 'destructive' } },
+    { label: 'Success',     propsOverride: { variant: 'success' } },
+    { label: 'Warning',     propsOverride: { variant: 'warning' } },
+    { label: 'Info',        propsOverride: { variant: 'info' } },
   ],
   Toggle: [
     { label: 'Off',          propsOverride: { pressed: false, variant: 'default' } },
     { label: 'On',           propsOverride: { pressed: true,  variant: 'default' } },
     { label: 'Outline Off',  propsOverride: { pressed: false, variant: 'outline' } },
     { label: 'Outline On',   propsOverride: { pressed: true,  variant: 'outline' } },
+  ],
+  Spinner: [
+    { label: 'Border', propsOverride: { variant: 'border' } },
+    { label: 'Dots',   propsOverride: { variant: 'dots'   } },
+    { label: 'Bars',   propsOverride: { variant: 'bars'   } },
+    { label: 'Pulse',  propsOverride: { variant: 'pulse'  } },
   ],
   Switch: [
     { label: 'Off',           propsOverride: { checked: false } },
@@ -211,6 +282,30 @@ const COMPONENT_STATES: Record<string, StateEntry[]> = {
     { label: 'Indeterminate', propsOverride: { checked: false, indeterminate: true  } },
     { label: 'Disabled',      propsOverride: { checked: false, disabled: true } },
     { label: 'Checked / Disabled', propsOverride: { checked: true, disabled: true } },
+  ],
+  Accordion: [
+    { label: 'Default',   propsOverride: { variant: 'default'   } },
+    { label: 'Separated', propsOverride: { variant: 'separated' } },
+    { label: 'Bordered',  propsOverride: { variant: 'bordered'  } },
+    { label: 'Ghost',     propsOverride: { variant: 'ghost'     } },
+  ],
+  Dropzone: [
+    { label: 'Idle',    propsOverride: { variant: 'default' } },
+    { label: 'Active',  propsOverride: { variant: 'active'  } },
+    { label: 'Success', propsOverride: { variant: 'success' } },
+    { label: 'Error',   propsOverride: { variant: 'error'   } },
+  ],
+  'Input OTP': [
+    { label: 'Empty',     propsOverride: { previewValue: ''       } },
+    { label: 'Partial',   propsOverride: { previewValue: '123'    } },
+    { label: 'Complete',  propsOverride: { previewValue: '123456' } },
+    { label: 'Disabled',  propsOverride: { disabled: true         } },
+  ],
+  Pagination: [
+    { label: 'Default',  propsOverride: { variant: 'default'  } },
+    { label: 'Filled',   propsOverride: { variant: 'filled'   } },
+    { label: 'Minimal',  propsOverride: { variant: 'minimal'  } },
+    { label: 'Rounded',  propsOverride: { variant: 'rounded'  } },
   ],
   'Radio Group': [
     { label: 'Option A selected', propsOverride: { defaultValue: 'option-a' } },
@@ -307,6 +402,71 @@ function generateTSX(
     return {
       full: `import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"\n\nexport function MyAlert() {\n  return (\n    <Alert${p}>\n      <AlertTitle>${title}</AlertTitle>\n      <AlertDescription>${description}</AlertDescription>\n    </Alert>\n  )\n}`,
       usage: `<Alert${p}><AlertTitle>${title}</AlertTitle><AlertDescription>${description}</AlertDescription></Alert>`,
+    }
+  }
+  if (component === 'Accordion') {
+    const itemCount = (props.itemCount as number) ?? 3
+    const items = Array.from({ length: itemCount }, (_, i) => ({
+      q: (props[`item${i}Title`] as string) ?? `Section ${i + 1}`,
+      a: (props[`item${i}Content`] as string) ?? 'Content goes here.',
+    }))
+    const itemsJSX = items.map((it, i) =>
+      `  <AccordionItem value="item-${i + 1}">\n    <AccordionTrigger>${it.q}</AccordionTrigger>\n    <AccordionContent>${it.a}</AccordionContent>\n  </AccordionItem>`
+    ).join('\n')
+    return {
+      full: `import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"\n\nexport function MyAccordion() {\n  return (\n    <Accordion type="single" collapsible className="w-full">\n${itemsJSX}\n    </Accordion>\n  )\n}`,
+      usage: `<Accordion type="single" collapsible>\n${itemsJSX}\n</Accordion>`,
+    }
+  }
+  if (component === 'Dropzone') {
+    const variant = (props.variant as string) ?? 'default'
+    const title = (props.title as string) ?? 'Drop files here'
+    const description = (props.description as string) ?? 'or click to browse'
+    const acceptedTypes = (props.acceptedTypes as string) ?? 'PNG, JPG, PDF'
+    const maxSize = (props.maxSize as string) ?? '10MB'
+    const p = variant !== 'default' ? ` data-variant="${variant}"` : ''
+    return {
+      full: `// Custom Dropzone component (no shadcn dep)\nexport function MyDropzone() {\n  return (\n    <div${p}\n      className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border p-10 text-center cursor-pointer hover:bg-muted/40 transition-colors"\n    >\n      <div className="text-sm font-medium">${title}</div>\n      <div className="text-xs text-muted-foreground">${description}</div>\n      <div className="text-xs text-muted-foreground">${acceptedTypes} · Max ${maxSize}</div>\n    </div>\n  )\n}`,
+      usage: `<Dropzone title="${title}" description="${description}" accept="${acceptedTypes}" maxSize="${maxSize}" />`,
+    }
+  }
+  if (component === 'Input OTP') {
+    const length = (props.length as number) ?? 6
+    const grouped = (props.grouped as boolean) ?? false
+    const half = Math.floor(length / 2)
+    const slots = (n: number, offset = 0) =>
+      Array.from({ length: n }, (_, i) => `      <InputOTPSlot index={${offset + i}} />`).join('\n')
+    const inner = grouped
+      ? `    <InputOTPGroup>\n${slots(half)}\n    </InputOTPGroup>\n    <InputOTPSeparator />\n    <InputOTPGroup>\n${slots(length - half, half)}\n    </InputOTPGroup>`
+      : `    <InputOTPGroup>\n${slots(length)}\n    </InputOTPGroup>`
+    return {
+      full: `import { InputOTP, InputOTPGroup, InputOTPSlot${grouped ? ', InputOTPSeparator' : ''} } from "@/components/ui/input-otp"\n\nexport function MyInputOTP() {\n  return (\n    <InputOTP maxLength={${length}}>\n${inner}\n    </InputOTP>\n  )\n}`,
+      usage: `<InputOTP maxLength={${length}}>...</InputOTP>`,
+    }
+  }
+  if (component === 'Pagination') {
+    const totalPages = (props.totalPages as number) ?? 5
+    const activePage = (props.activePage as number) ?? 3
+    const showPrevNext = (props.showPrevNext as boolean) ?? true
+    const prevLabel = (props.prevLabel as string) ?? 'Previous'
+    const nextLabel = (props.nextLabel as string) ?? 'Next'
+    const items = Array.from({ length: totalPages }, (_, i) => i + 1)
+      .map((p) => `    <PaginationItem>\n      <PaginationLink${p === activePage ? ' isActive' : ''} href="#">${p}</PaginationLink>\n    </PaginationItem>`)
+      .join('\n')
+    return {
+      full: `import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"\n\nexport function MyPagination() {\n  return (\n    <Pagination>\n      <PaginationContent>\n${showPrevNext ? `        <PaginationItem><PaginationPrevious href="#" text="${prevLabel}" /></PaginationItem>\n` : ''}${items}\n${showPrevNext ? `        <PaginationItem><PaginationNext href="#" text="${nextLabel}" /></PaginationItem>` : ''}\n      </PaginationContent>\n    </Pagination>\n  )\n}`,
+      usage: `<Pagination>...</Pagination>`,
+    }
+  }
+  if (component === 'Spinner') {
+    const variant = (props.variant as string) ?? 'border'
+    const size = (props.size as string) ?? 'md'
+    const label = (props.label as string) ?? ''
+    const sizeMap: Record<string, string> = { xs: '12px', sm: '16px', md: '24px', lg: '32px', xl: '48px' }
+    const dim = sizeMap[size] ?? sizeMap.md
+    return {
+      full: `// Spinner — no external dependency\nexport function MySpinner() {\n  return (\n    <div\n      role="status"\n      className="inline-block animate-spin rounded-full border-2 border-current border-t-transparent"\n      style={{ width: '${dim}', height: '${dim}' }}\n      aria-label="${label || 'Loading'}"\n    />\n  )\n}`,
+      usage: `<div role="status" className="inline-block animate-spin rounded-full border-2 border-current border-t-transparent" style={{ width: '${dim}', height: '${dim}' }} />`,
     }
   }
   if (component === 'Textarea') {
@@ -410,6 +570,234 @@ function ColorControl({
   )
 }
 
+// ─── Token color picker (floating draggable panel) ────────────────────────────
+
+function TokenColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const activeTokenKey = TOKEN_KEYS.find(k => `var(${TOKEN_CSS_VARS[k]})` === value) ?? null
+  const activeTailwind = activeTokenKey === null
+    ? (() => {
+        for (const family of TAILWIND_PALETTE) {
+          const shade = family.shades.find(s => s.hex === value)
+          if (shade) return { family: family.name, shade: shade.shade, hex: shade.hex }
+        }
+        return null
+      })()
+    : null
+
+  const displayLabel = activeTokenKey
+    ? TOKEN_LABELS[activeTokenKey]
+    : activeTailwind
+    ? `${activeTailwind.family} ${activeTailwind.shade}`
+    : value || 'Select...'
+
+  const displayColor = activeTokenKey
+    ? `var(${TOKEN_CSS_VARS[activeTokenKey]})`
+    : activeTailwind?.hex ?? (value || 'transparent')
+
+  const q = query.trim().toLowerCase()
+  const filteredTokenGroups = q
+    ? TOKEN_GROUPS.map(g => ({ ...g, keys: g.keys.filter(k => TOKEN_LABELS[k].toLowerCase().includes(q)) })).filter(g => g.keys.length > 0)
+    : TOKEN_GROUPS
+  const filteredTailwind = q
+    ? TAILWIND_PALETTE.filter(f =>
+        f.name.toLowerCase().includes(q) ||
+        f.shades.some(s => `${f.name} ${s.shade}`.toLowerCase().includes(q))
+      )
+    : TAILWIND_PALETTE
+
+  function openPanel() {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      const panelW = 288
+      const x = Math.max(8, rect.left - panelW - 8)
+      setPos({ x, y: rect.top })
+    }
+    setOpen(true)
+  }
+
+  function onDragStart(e: React.MouseEvent<HTMLDivElement>) {
+    e.preventDefault()
+    const startX = e.clientX - pos.x
+    const startY = e.clientY - pos.y
+    function onMove(ev: MouseEvent) { setPos({ x: ev.clientX - startX, y: ev.clientY - startY }) }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    function handler(e: MouseEvent) {
+      if (
+        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) { setOpen(false); setQuery('') }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  function select(v: string) { onChange(v); setOpen(false); setQuery('') }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        onClick={() => open ? setOpen(false) : openPanel()}
+        className="flex-1 h-7 flex items-center gap-1.5 px-2 text-xs rounded-md border border-border bg-muted hover:bg-muted/70 transition-colors cursor-pointer min-w-0 overflow-hidden"
+      >
+        <div className="w-3.5 h-3.5 rounded-sm shrink-0 border border-border/40" style={{ backgroundColor: displayColor }} />
+        <span className="truncate text-left flex-1 text-foreground/80">{displayLabel}</span>
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          style={{ left: pos.x, top: pos.y, width: 288 }}
+          className="fixed z-50 bg-popover border border-border rounded-xl shadow-lg overflow-hidden flex flex-col"
+        >
+          {/* Drag handle */}
+          <div
+            onMouseDown={onDragStart}
+            className="flex justify-center items-center h-6 bg-muted/50 cursor-grab active:cursor-grabbing select-none border-b border-border/40 shrink-0"
+          >
+            <div className="flex gap-0.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="w-0.5 h-2.5 rounded-full bg-muted-foreground/30" />
+              ))}
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="p-2 shrink-0">
+            <Input
+              placeholder="Search tokens & colors..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-7 text-xs"
+              autoFocus
+            />
+          </div>
+
+          {/* Content */}
+          <div className="overflow-y-auto max-h-80">
+            {/* Design Tokens */}
+            {filteredTokenGroups.length > 0 && (
+              <div className="px-2 pb-1">
+                <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Design Tokens</p>
+                {filteredTokenGroups.map(group => (
+                  <div key={group.label}>
+                    <p className="px-1 pt-2 pb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{group.label}</p>
+                    {group.keys.map(key => (
+                      <button
+                        key={key}
+                        onClick={() => select(`var(${TOKEN_CSS_VARS[key]})`)}
+                        className={cn(
+                          'flex items-center gap-2 w-full px-2 py-1 rounded-md text-xs cursor-pointer transition-colors hover:bg-muted text-left',
+                          activeTokenKey === key && 'bg-accent/15 font-medium',
+                        )}
+                      >
+                        <div className="w-4 h-4 rounded-sm shrink-0 border border-border/40" style={{ backgroundColor: `var(${TOKEN_CSS_VARS[key]})` }} />
+                        {TOKEN_LABELS[key]}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Tailwind Colors */}
+            {filteredTailwind.length > 0 && (
+              <div className="px-2 pt-2 pb-3">
+                <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Tailwind Colors</p>
+                {filteredTailwind.map(family => (
+                  <div key={family.name} className="flex items-center gap-2 py-0.5 px-1">
+                    <span className="text-[10px] text-muted-foreground w-12 shrink-0">{family.name}</span>
+                    <div className="flex gap-0.5 flex-1">
+                      {family.shades.map(({ shade, hex }) => (
+                        <button
+                          key={shade}
+                          title={`${family.name} ${shade} · ${hex}`}
+                          onClick={() => select(hex)}
+                          className={cn(
+                            'flex-1 h-4 rounded-sm cursor-pointer transition-all hover:scale-y-125 hover:rounded-none',
+                            activeTailwind?.family === family.name && activeTailwind?.shade === shade && 'ring-1 ring-foreground ring-offset-1',
+                          )}
+                          style={{ backgroundColor: hex }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {filteredTokenGroups.length === 0 && filteredTailwind.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-6">No results for "{query}"</p>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ─── Token/Custom color binding control ───────────────────────────────────────
+// Lets the user choose between a semantic token (var(--primary) etc.) or a raw
+// custom color. Mode is derived from the stored value — no separate state needed.
+
+function TokenColorControl({
+  label,
+  value,
+  onChange,
+  paletteColors,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  paletteColors: string[]
+}) {
+  const activeTokenKey = TOKEN_KEYS.find(k => `var(${TOKEN_CSS_VARS[k]})` === value) ?? null
+  const isTailwind = activeTokenKey === null && TAILWIND_PALETTE.some(f => f.shades.some(s => s.hex === value))
+  const mode: 'token' | 'custom' = (activeTokenKey !== null || isTailwind) ? 'token' : 'custom'
+
+  return (
+    <div className="px-4 py-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+        <div className="flex bg-muted rounded-md p-0.5 gap-0.5">
+          {(['token', 'custom'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => { if (m === 'token' && mode !== 'token') onChange(`var(${TOKEN_CSS_VARS['primary']})`); else if (m === 'custom' && mode !== 'custom') onChange('') }}
+              className={cn(
+                'text-[10px] px-2 py-0.5 rounded cursor-pointer capitalize transition-all',
+                mode === m ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >{m}</button>
+          ))}
+        </div>
+      </div>
+      {mode === 'token' ? (
+        <TokenColorPicker value={value} onChange={onChange} />
+      ) : (
+        <div className="flex items-center gap-2">
+          <ColorPicker value={value} onChange={onChange} paletteColors={paletteColors} />
+          <span className="text-xs font-mono text-muted-foreground truncate max-w-[80px]">
+            {value || <span className="text-muted-foreground/40 not-italic">Default</span>}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RadiusControl({
   label,
   value,
@@ -440,18 +828,20 @@ function RadiusControl({
               ↩ Global
             </button>
           )}
-          {(['px', 'rem'] as const).map((u) => (
-            <button
-              key={u}
-              onClick={() => setUnit(u)}
-              className={cn(
-                'text-xs px-1.5 py-0.5 rounded cursor-pointer',
-                unit === u ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {u}
-            </button>
-          ))}
+          <div className="flex bg-muted rounded-md p-0.5 gap-0.5">
+            {(['px', 'rem'] as const).map((u) => (
+              <button
+                key={u}
+                onClick={() => setUnit(u)}
+                className={cn(
+                  'text-xs px-2 py-0.5 rounded cursor-pointer transition-all',
+                  unit === u ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <input
@@ -634,21 +1024,21 @@ function ButtonSections({ props, updateProp, paletteColors, primaryColor, global
       </InspectorSection>
 
       <InspectorSection title="Colors">
-        <ColorControl
+        <TokenColorControl
           label="Background"
-          value={(props.bgColor as string) ?? primaryColor}
+          value={(props.bgColor as string) ?? ''}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Text"
-          value={(props.textColor as string) ?? '#ffffff'}
+          value={(props.textColor as string) ?? ''}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Border"
-          value={(props.borderColor as string) ?? (paletteColors[1] ?? '#e5e7eb')}
+          value={(props.borderColor as string) ?? ''}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
@@ -735,9 +1125,24 @@ function ButtonSections({ props, updateProp, paletteColors, primaryColor, global
   )
 }
 
+const BADGE_SIZE_PRESETS: Record<string, { fontSize: number; padding: PaddingValue; height: number }> = {
+  sm: { fontSize: 10, padding: { top: 1, right: 8,  bottom: 1, left: 8  }, height: 18 },
+  md: { fontSize: 12, padding: { top: 2, right: 10, bottom: 2, left: 10 }, height: 20 },
+  lg: { fontSize: 14, padding: { top: 4, right: 14, bottom: 4, left: 14 }, height: 26 },
+}
+
 function BadgeSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const variant = (props.variant as string) ?? 'default'
+  const size = (props.size as string) ?? 'md'
   const fontWeight = (props.fontWeight as string) ?? '500'
+
+  function applySize(s: string) {
+    const preset = BADGE_SIZE_PRESETS[s]
+    if (!preset) return
+    updateProp('size', s)
+    updateProp('fontSize', preset.fontSize)
+    updateProp('padding', preset.padding)
+  }
 
   return (
     <>
@@ -747,8 +1152,16 @@ function BadgeSections({ props, updateProp, paletteColors, primaryColor, globalR
         <div className="px-4 pt-2 pb-2">
           <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
           <div className="flex flex-wrap gap-1.5">
-            {['default', 'secondary', 'destructive', 'outline'].map((v) => (
+            {['default', 'secondary', 'destructive', 'outline', 'success', 'warning', 'info'].map((v) => (
               <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {(['sm', 'md', 'lg'] as const).map((s) => (
+              <PillButton key={s} label={s} active={size === s} onClick={() => applySize(s)} />
             ))}
           </div>
         </div>
@@ -763,7 +1176,7 @@ function BadgeSections({ props, updateProp, paletteColors, primaryColor, globalR
       </InspectorSection>
 
       <InspectorSection title="Icons">
-        <div className="flex items-center justify-between px-4 pt-2 pb-2">
+        <div className="flex items-center justify-between px-4 pt-2 pb-1">
           <span className="text-xs text-muted-foreground">Leading icon</span>
           <IconPicker
             value={(props.leadingIcon as string) ?? null}
@@ -771,18 +1184,26 @@ function BadgeSections({ props, updateProp, paletteColors, primaryColor, globalR
             placeholder="Add icon..."
           />
         </div>
+        <div className="flex items-center justify-between px-4 pt-1 pb-2">
+          <span className="text-xs text-muted-foreground">Trailing icon</span>
+          <IconPicker
+            value={(props.trailingIcon as string) ?? null}
+            onChange={(v) => updateProp('trailingIcon', v ?? undefined)}
+            placeholder="Add icon..."
+          />
+        </div>
       </InspectorSection>
 
       <InspectorSection title="Colors">
-        <ColorControl
+        <TokenColorControl
           label="Background"
-          value={(props.bgColor as string) ?? primaryColor}
+          value={(props.bgColor as string) ?? ''}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Text"
-          value={(props.textColor as string) ?? '#ffffff'}
+          value={(props.textColor as string) ?? ''}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
@@ -861,15 +1282,15 @@ function InputSections({ props, updateProp, paletteColors, primaryColor, globalR
       </InspectorSection>
 
       <InspectorSection title="Colors">
-        <ColorControl
+        <TokenColorControl
           label="Border"
-          value={(props.borderColor as string) ?? (paletteColors[1] ?? '#e5e7eb')}
+          value={(props.borderColor as string) ?? ''}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Background"
-          value={(props.bgColor as string) ?? primaryColor}
+          value={(props.bgColor as string) ?? ''}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
@@ -936,6 +1357,106 @@ function InputSections({ props, updateProp, paletteColors, primaryColor, globalR
   )
 }
 
+function InputOTPSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const slotStyle = (props.slotStyle as string) ?? 'bordered'
+  const slotSize = (props.slotSize as string) ?? 'md'
+  const length = (props.length as number) ?? 6
+
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Slot style</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {['bordered', 'filled', 'underline'].map((s) => (
+              <PillButton key={s} label={s} active={slotStyle === s} onClick={() => updateProp('slotStyle', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Slot size</p>
+          <div className="flex gap-1.5">
+            {['sm', 'md', 'lg'].map((s) => (
+              <PillButton key={s} label={s} active={slotSize === s} onClick={() => updateProp('slotSize', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Structure">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Length</p>
+          <div className="flex gap-1.5">
+            {[4, 5, 6, 8].map((n) => (
+              <PillButton key={n} label={String(n)} active={length === n} onClick={() => updateProp('length', n)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Split into groups</span>
+          <Switch checked={(props.grouped as boolean) ?? false} onCheckedChange={(v) => updateProp('grouped', v)} />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Preview value">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Characters shown</p>
+          <Input
+            value={(props.previewValue as string) ?? ''}
+            maxLength={length}
+            onChange={(e) => updateProp('previewValue', e.target.value)}
+            className="h-7 text-xs rounded-md font-mono"
+            placeholder="e.g. 123456"
+          />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Colors">
+        <TokenColorControl
+          label="Slot background"
+          value={(props.slotBg as string) ?? ''}
+          onChange={(v) => updateProp('slotBg', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Slot border"
+          value={(props.slotBorder as string) ?? ''}
+          onChange={(v) => updateProp('slotBorder', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Text"
+          value={(props.textColor as string) ?? ''}
+          onChange={(v) => updateProp('textColor', v)}
+          paletteColors={paletteColors}
+        />
+      </InspectorSection>
+
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch checked={(props.disabled as boolean) ?? false} onCheckedChange={(v) => updateProp('disabled', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Mask characters</span>
+          <Switch checked={(props.mask as boolean) ?? false} onCheckedChange={(v) => updateProp('mask', v)} />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Border Radius">
+        <RadiusControl
+          label="Slot radius"
+          value={props.borderRadius as number | undefined}
+          globalValue={globalRadius}
+          onChange={(v) => updateProp('borderRadius', v)}
+        />
+      </InspectorSection>
+    </>
+  )
+}
+
 function CardSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const shadow = (props.shadow as string) ?? 'none'
 
@@ -971,15 +1492,15 @@ function CardSections({ props, updateProp, paletteColors, primaryColor, globalRa
       </InspectorSection>
 
       <InspectorSection title="Colors">
-        <ColorControl
+        <TokenColorControl
           label="Background"
-          value={(props.bgColor as string) ?? primaryColor}
+          value={(props.bgColor as string) ?? ''}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Border"
-          value={(props.borderColor as string) ?? (paletteColors[1] ?? '#e5e7eb')}
+          value={(props.borderColor as string) ?? ''}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
@@ -1027,7 +1548,121 @@ function CardSections({ props, updateProp, paletteColors, primaryColor, globalRa
   )
 }
 
-function AlertSections({ props, updateProp, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function AccordionSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const variant = (props.variant as string) ?? 'default'
+  const itemCount = (props.itemCount as number) ?? 3
+  const chevronSide = (props.chevronSide as string) ?? 'right'
+
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['default', 'separated', 'bordered', 'ghost'].map((v) => (
+              <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Chevron side</p>
+          <div className="flex gap-1.5">
+            {['left', 'right'].map((s) => (
+              <PillButton key={s} label={s} active={chevronSide === s} onClick={() => updateProp('chevronSide', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Allow multiple open</span>
+          <Switch checked={(props.multiple as boolean) ?? false} onCheckedChange={(v) => updateProp('multiple', v)} />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Items">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Item count</p>
+          <div className="flex gap-1.5">
+            {[2, 3, 4, 5].map((n) => (
+              <PillButton key={n} label={String(n)} active={itemCount === n} onClick={() => updateProp('itemCount', n)} />
+            ))}
+          </div>
+        </div>
+        {Array.from({ length: itemCount }, (_, i) => (
+          <div key={i} className="px-4 pt-1 pb-2 border-t border-border/40 mt-1">
+            <p className="text-xs text-muted-foreground mb-1.5 mt-1.5">Item {i + 1} title</p>
+            <Input
+              value={(props[`item${i}Title`] as string) ?? `Section ${i + 1}`}
+              onChange={(e) => updateProp(`item${i}Title`, e.target.value)}
+              className="h-7 text-xs rounded-md mb-1.5"
+            />
+            <p className="text-xs text-muted-foreground mb-1.5">Item {i + 1} content</p>
+            <Input
+              value={(props[`item${i}Content`] as string) ?? 'Content goes here.'}
+              onChange={(e) => updateProp(`item${i}Content`, e.target.value)}
+              className="h-7 text-xs rounded-md mb-2"
+            />
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-muted-foreground">Leading icon</span>
+              <IconPicker
+                value={(props[`item${i}LeadingIcon`] as string) ?? null}
+                onChange={(v) => updateProp(`item${i}LeadingIcon`, v ?? undefined)}
+                placeholder="Add icon..."
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Trailing icon</span>
+              <IconPicker
+                value={(props[`item${i}TrailingIcon`] as string) ?? null}
+                onChange={(v) => updateProp(`item${i}TrailingIcon`, v ?? undefined)}
+                placeholder="Add icon..."
+              />
+            </div>
+          </div>
+        ))}
+      </InspectorSection>
+
+      <InspectorSection title="Colors">
+        <TokenColorControl
+          label="Background"
+          value={(props.bgColor as string) ?? ''}
+          onChange={(v) => updateProp('bgColor', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Trigger text"
+          value={(props.triggerColor as string) ?? ''}
+          onChange={(v) => updateProp('triggerColor', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Content text"
+          value={(props.contentColor as string) ?? ''}
+          onChange={(v) => updateProp('contentColor', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Border"
+          value={(props.borderColor as string) ?? ''}
+          onChange={(v) => updateProp('borderColor', v)}
+          paletteColors={paletteColors}
+        />
+      </InspectorSection>
+
+      <InspectorSection title="Border Radius">
+        <RadiusControl
+          label="Item radius"
+          value={props.borderRadius as number | undefined}
+          globalValue={globalRadius}
+          onChange={(v) => updateProp('borderRadius', v)}
+        />
+      </InspectorSection>
+    </>
+  )
+}
+
+function AlertSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const variant = (props.variant as string) ?? 'default'
 
   return (
@@ -1037,11 +1672,36 @@ function AlertSections({ props, updateProp, globalRadius, onChangeGlobalRadius }
       <InspectorSection title="Appearance">
         <div className="px-4 pt-2 pb-2">
           <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
-          <div className="flex gap-1.5">
-            {['default', 'destructive'].map((v) => (
+          <div className="flex flex-wrap gap-1.5">
+            {['default', 'destructive', 'success', 'warning', 'info'].map((v) => (
               <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
             ))}
           </div>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Colors">
+        <TokenColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Border color" value={(props.borderColor as string) ?? ''} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+      </InspectorSection>
+
+      <InspectorSection title="Icons">
+        <div className="flex items-center justify-between px-4 pt-2 pb-2">
+          <span className="text-xs text-muted-foreground">Leading icon</span>
+          <IconPicker
+            value={(props.leadingIcon as string) ?? null}
+            onChange={(v) => updateProp('leadingIcon', v ?? undefined)}
+            placeholder="Add icon..."
+          />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Trailing icon</span>
+          <IconPicker
+            value={(props.trailingIcon as string) ?? null}
+            onChange={(v) => updateProp('trailingIcon', v ?? undefined)}
+            placeholder="Add icon..."
+          />
         </div>
       </InspectorSection>
 
@@ -1139,24 +1799,24 @@ function AvatarSections({ props, updateProp, paletteColors, primaryColor, global
       </InspectorSection>
 
       <InspectorSection title="Colors">
-        <ColorControl
+        <TokenColorControl
           label="Background"
-          value={(props.bgColor as string) ?? primaryColor}
+          value={(props.bgColor as string) ?? ''}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Text"
-          value={(props.textColor as string) ?? '#ffffff'}
+          value={(props.textColor as string) ?? ''}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
       </InspectorSection>
 
       <InspectorSection title="Border">
-        <ColorControl
+        <TokenColorControl
           label="Border color"
-          value={(props.borderColor as string) ?? (paletteColors[1] ?? '#e5e7eb')}
+          value={(props.borderColor as string) ?? ''}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
@@ -1183,6 +1843,98 @@ function AvatarSections({ props, updateProp, paletteColors, primaryColor, global
           value={props.borderRadius as number | undefined}
           globalValue={globalRadius}
           onChange={(v) => updateProp('borderRadius', v)}
+        />
+      </InspectorSection>
+    </>
+  )
+}
+
+function SpinnerSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const variant = (props.variant as string) ?? 'border'
+  const size    = (props.size    as string) ?? 'md'
+  const speed   = (props.speed   as string) ?? 'normal'
+  const labelPos = (props.labelPosition as string) ?? 'bottom'
+
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['border', 'dots', 'bars', 'pulse'].map((v) => (
+              <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {['xs', 'sm', 'md', 'lg', 'xl'].map((s) => (
+              <PillButton key={s} label={s} active={size === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Speed</p>
+          <div className="flex gap-1.5">
+            {['slow', 'normal', 'fast'].map((s) => (
+              <PillButton key={s} label={s} active={speed === s} onClick={() => updateProp('speed', s)} />
+            ))}
+          </div>
+        </div>
+        {variant === 'border' && (
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-xs text-muted-foreground">Thickness (px)</span>
+            <input
+              type="number" min={1} max={8} step={1}
+              value={(props.thickness as number) ?? 2}
+              onChange={(e) => updateProp('thickness', parseInt(e.target.value))}
+              className="w-16 h-7 text-xs font-mono bg-muted border border-border rounded-md px-2 outline-none focus:border-ring text-right"
+            />
+          </div>
+        )}
+      </InspectorSection>
+
+      <InspectorSection title="Label">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Label text</p>
+          <Input
+            value={(props.label as string) ?? ''}
+            onChange={(e) => updateProp('label', e.target.value)}
+            className="h-7 text-xs rounded-md"
+            placeholder="e.g. Loading…"
+          />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Label position</p>
+          <div className="flex gap-1.5">
+            {['bottom', 'right'].map((p) => (
+              <PillButton key={p} label={p} active={labelPos === p} onClick={() => updateProp('labelPosition', p)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Colors">
+        <TokenColorControl
+          label="Spinner color"
+          value={(props.color as string) ?? ''}
+          onChange={(v) => updateProp('color', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Track color"
+          value={(props.trackColor as string) ?? ''}
+          onChange={(v) => updateProp('trackColor', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Label color"
+          value={(props.labelColor as string) ?? ''}
+          onChange={(v) => updateProp('labelColor', v)}
+          paletteColors={paletteColors}
         />
       </InspectorSection>
     </>
@@ -1353,9 +2105,9 @@ function TabsSections({ props, updateProp, paletteColors, primaryColor, globalRa
         ))}
       </InspectorSection>
       <InspectorSection title="Colors">
-        <ColorControl
+        <TokenColorControl
           label="Active tab"
-          value={(props.activeColor as string) ?? primaryColor}
+          value={(props.activeColor as string) ?? ''}
           onChange={(v) => updateProp('activeColor', v)}
           paletteColors={paletteColors}
         />
@@ -1472,21 +2224,21 @@ function TextareaSections({ props, updateProp, paletteColors, globalRadius, onCh
         </div>
       </InspectorSection>
       <InspectorSection title="Colors">
-        <ColorControl
+        <TokenColorControl
           label="Background"
-          value={(props.bgColor as string) ?? '#ffffff'}
+          value={(props.bgColor as string) ?? ''}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Border"
-          value={(props.borderColor as string) ?? (paletteColors[1] ?? '#e5e7eb')}
+          value={(props.borderColor as string) ?? ''}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
-        <ColorControl
+        <TokenColorControl
           label="Text"
-          value={(props.textColor as string) ?? '#000000'}
+          value={(props.textColor as string) ?? ''}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
@@ -1701,6 +2453,112 @@ function DialogSections({ props, updateProp, paletteColors, globalRadius, onChan
   )
 }
 
+function DropzoneSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const variant = (props.variant as string) ?? 'default'
+  const borderStyle = (props.borderStyle as string) ?? 'dashed'
+
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['default', 'active', 'success', 'error'].map((v) => (
+              <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Border style</p>
+          <div className="flex gap-1.5">
+            {['dashed', 'solid', 'dotted'].map((s) => (
+              <PillButton key={s} label={s} active={borderStyle === s} onClick={() => updateProp('borderStyle', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Icon">
+        <div className="flex items-center justify-between px-4 pt-2 pb-2">
+          <span className="text-xs text-muted-foreground">Upload icon</span>
+          <IconPicker
+            value={(props.icon as string) ?? null}
+            onChange={(v) => updateProp('icon', v ?? undefined)}
+            placeholder="Add icon..."
+          />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Title</p>
+          <Input
+            value={(props.title as string) ?? 'Drop files here'}
+            onChange={(e) => updateProp('title', e.target.value)}
+            className="h-7 text-xs rounded-md"
+          />
+        </div>
+        <div className="px-4 pt-1 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Description</p>
+          <Input
+            value={(props.description as string) ?? 'or click to browse'}
+            onChange={(e) => updateProp('description', e.target.value)}
+            className="h-7 text-xs rounded-md"
+          />
+        </div>
+        <div className="px-4 pt-1 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Accepted types</p>
+          <Input
+            value={(props.acceptedTypes as string) ?? 'PNG, JPG, PDF'}
+            onChange={(e) => updateProp('acceptedTypes', e.target.value)}
+            className="h-7 text-xs rounded-md"
+          />
+        </div>
+        <div className="px-4 pt-1 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Max file size</p>
+          <Input
+            value={(props.maxSize as string) ?? '10MB'}
+            onChange={(e) => updateProp('maxSize', e.target.value)}
+            className="h-7 text-xs rounded-md"
+          />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Colors">
+        <TokenColorControl
+          label="Background"
+          value={(props.bgColor as string) ?? ''}
+          onChange={(v) => updateProp('bgColor', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Border"
+          value={(props.borderColor as string) ?? ''}
+          onChange={(v) => updateProp('borderColor', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Text"
+          value={(props.textColor as string) ?? ''}
+          onChange={(v) => updateProp('textColor', v)}
+          paletteColors={paletteColors}
+        />
+      </InspectorSection>
+
+      <InspectorSection title="Border Radius">
+        <RadiusControl
+          label="Dropzone radius"
+          value={props.borderRadius as number | undefined}
+          globalValue={globalRadius}
+          onChange={(v) => updateProp('borderRadius', v)}
+        />
+      </InspectorSection>
+    </>
+  )
+}
+
 function DropdownMenuSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const itemCount = (props.itemCount as number) ?? 3
   const showIcons = (props.showIcons as boolean) ?? false
@@ -1810,6 +2668,24 @@ function LabelSections({ props, updateProp, paletteColors, globalRadius, onChang
           </div>
         </div>
       </InspectorSection>
+      <InspectorSection title="Icons">
+        <div className="flex items-center justify-between px-4 pt-2 pb-1">
+          <span className="text-xs text-muted-foreground">Leading icon</span>
+          <IconPicker
+            value={(props.leadingIcon as string) ?? null}
+            onChange={(v) => updateProp('leadingIcon', v ?? undefined)}
+            placeholder="Add icon..."
+          />
+        </div>
+        <div className="flex items-center justify-between px-4 pt-1 pb-2">
+          <span className="text-xs text-muted-foreground">Trailing icon</span>
+          <IconPicker
+            value={(props.trailingIcon as string) ?? null}
+            onChange={(v) => updateProp('trailingIcon', v ?? undefined)}
+            placeholder="Add icon..."
+          />
+        </div>
+      </InspectorSection>
       <InspectorSection title="Colors">
         <ColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
       </InspectorSection>
@@ -1874,6 +2750,106 @@ function PopoverSections({ props, updateProp, paletteColors, globalRadius, onCha
   )
 }
 
+function PaginationSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const variant    = (props.variant    as string) ?? 'default'
+  const totalPages = (props.totalPages as number) ?? 5
+  const activePage = (props.activePage as number) ?? 3
+  const size       = (props.size       as string) ?? 'md'
+
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
+          <div className="flex flex-wrap gap-1.5">
+            {['default', 'filled', 'minimal', 'rounded'].map((v) => (
+              <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5">
+            {['sm', 'md', 'lg'].map((s) => (
+              <PillButton key={s} label={s} active={size === s} onClick={() => updateProp('size', s)} />
+            ))}
+          </div>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Structure">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Total pages</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {[3, 5, 7, 10].map((n) => (
+              <PillButton key={n} label={String(n)} active={totalPages === n} onClick={() => updateProp('totalPages', n)} />
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Active page</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+              <PillButton key={n} label={String(n)} active={activePage === n} onClick={() => updateProp('activePage', n)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show prev / next</span>
+          <Switch checked={(props.showPrevNext as boolean) ?? true} onCheckedChange={(v) => updateProp('showPrevNext', v)} />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Show ellipsis</span>
+          <Switch checked={(props.showEllipsis as boolean) ?? true} onCheckedChange={(v) => updateProp('showEllipsis', v)} />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Labels">
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-xs text-muted-foreground mb-1.5">Previous label</p>
+          <Input value={(props.prevLabel as string) ?? 'Previous'} onChange={(e) => updateProp('prevLabel', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Next label</p>
+          <Input value={(props.nextLabel as string) ?? 'Next'} onChange={(e) => updateProp('nextLabel', e.target.value)} className="h-7 text-xs rounded-md" />
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Colors">
+        <TokenColorControl
+          label="Active background"
+          value={(props.activeBg as string) ?? ''}
+          onChange={(v) => updateProp('activeBg', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Active text"
+          value={(props.activeText as string) ?? ''}
+          onChange={(v) => updateProp('activeText', v)}
+          paletteColors={paletteColors}
+        />
+        <TokenColorControl
+          label="Text color"
+          value={(props.textColor as string) ?? ''}
+          onChange={(v) => updateProp('textColor', v)}
+          paletteColors={paletteColors}
+        />
+      </InspectorSection>
+
+      <InspectorSection title="Border Radius">
+        <RadiusControl
+          label="Button radius"
+          value={props.borderRadius as number | undefined}
+          globalValue={globalRadius}
+          onChange={(v) => updateProp('borderRadius', v)}
+        />
+      </InspectorSection>
+    </>
+  )
+}
+
 function ProgressSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const progressSize = (props.size as string) ?? 'default'
   const progressStyle = (props.style as string) ?? 'default'
@@ -1906,8 +2882,8 @@ function ProgressSections({ props, updateProp, paletteColors, primaryColor, glob
         </div>
       </InspectorSection>
       <InspectorSection title="Colors">
-        <ColorControl label="Track color" value={(props.trackColor as string) ?? ''} onChange={(v) => updateProp('trackColor', v)} paletteColors={paletteColors} />
-        <ColorControl label="Indicator color" value={(props.indicatorColor as string) ?? primaryColor} onChange={(v) => updateProp('indicatorColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Track color" value={(props.trackColor as string) ?? ''} onChange={(v) => updateProp('trackColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Indicator color" value={(props.indicatorColor as string) ?? ''} onChange={(v) => updateProp('indicatorColor', v)} paletteColors={paletteColors} />
       </InspectorSection>
       <InspectorSection title="Border Radius">
         <RadiusControl label="Progress radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
@@ -2230,9 +3206,9 @@ function ToggleSections({ props, updateProp, paletteColors, primaryColor, global
         )}
       </InspectorSection>
       <InspectorSection title="Colors">
-        <ColorControl label="Active background" value={(props.activeColor as string) ?? primaryColor} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
-        <ColorControl label="Active text" value={(props.activeTextColor as string) ?? ''} onChange={(v) => updateProp('activeTextColor', v)} paletteColors={paletteColors} />
-        <ColorControl label="Inactive background" value={(props.inactiveColor as string) ?? ''} onChange={(v) => updateProp('inactiveColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Active background" value={(props.activeColor as string) ?? ''} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Active text" value={(props.activeTextColor as string) ?? ''} onChange={(v) => updateProp('activeTextColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Inactive background" value={(props.inactiveColor as string) ?? ''} onChange={(v) => updateProp('inactiveColor', v)} paletteColors={paletteColors} />
       </InspectorSection>
       <InspectorSection title="States">
         <div className="flex items-center justify-between px-4 py-2">
@@ -2348,9 +3324,9 @@ function BreadcrumbSections({ props, updateProp, paletteColors, primaryColor, gl
         </div>
       </InspectorSection>
       <InspectorSection title="Colors">
-        <ColorControl label="Link color" value={(props.linkColor as string) ?? primaryColor} onChange={(v) => updateProp('linkColor', v)} paletteColors={paletteColors} />
-        <ColorControl label="Active page color" value={(props.activeColor as string) ?? ''} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
-        <ColorControl label="Separator color" value={(props.separatorColor as string) ?? ''} onChange={(v) => updateProp('separatorColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Link color" value={(props.linkColor as string) ?? ''} onChange={(v) => updateProp('linkColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Active page color" value={(props.activeColor as string) ?? ''} onChange={(v) => updateProp('activeColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Separator color" value={(props.separatorColor as string) ?? ''} onChange={(v) => updateProp('separatorColor', v)} paletteColors={paletteColors} />
       </InspectorSection>
       <InspectorSection title="Border Radius">
         <RadiusControl label="Container radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
@@ -2619,6 +3595,7 @@ function Inspector({
   component,
   ...shared
 }: { component: string } & InspectorSharedProps) {
+  if (component === 'Accordion') return <AccordionSections {...shared} />
   if (component === 'Button') return <ButtonSections {...shared} />
   if (component === 'Badge') return <BadgeSections {...shared} />
   if (component === 'Input') return <InputSections {...shared} />
@@ -2629,13 +3606,17 @@ function Inspector({
   if (component === 'Sheet') return <SheetSections {...shared} />
   if (component === 'Calendar') return <CalendarSections {...shared} />
   if (component === 'Tabs') return <TabsSections {...shared} />
+  if (component === 'Spinner') return <SpinnerSections {...shared} />
   if (component === 'Table') return <TableSections {...shared} />
   if (component === 'Textarea') return <TextareaSections {...shared} />
   if (component === 'Checkbox') return <CheckboxSections {...shared} />
   if (component === 'Dialog') return <DialogSections {...shared} />
   if (component === 'Dropdown Menu') return <DropdownMenuSections {...shared} />
+  if (component === 'Dropzone') return <DropzoneSections {...shared} />
+  if (component === 'Input OTP') return <InputOTPSections {...shared} />
   if (component === 'Label') return <LabelSections {...shared} />
   if (component === 'Popover') return <PopoverSections {...shared} />
+  if (component === 'Pagination') return <PaginationSections {...shared} />
   if (component === 'Progress') return <ProgressSections {...shared} />
   if (component === 'Radio Group') return <RadioGroupSections {...shared} />
   if (component === 'Select') return <SelectSections {...shared} />
@@ -2749,7 +3730,7 @@ function PopoverPreview({ props, globalRadius }: { props: ComponentProps; global
 
 type ButtonVariant = 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon'
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info'
 type AlertVariant = 'default' | 'destructive'
 
 function ComponentPreview({
@@ -2765,15 +3746,162 @@ function ComponentPreview({
 }) {
   const radius = `${(props.borderRadius as number) ?? globalRadius}px`
 
+  if (name === 'Dropzone') {
+    const dzVariant = (props.variant as string) ?? 'default'
+    const borderStyle = (props.borderStyle as string) ?? 'dashed'
+    const UploadIcon = props.icon
+      ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props.icon as string] ?? null
+      : null
+
+    const variantStyles: Record<string, { border: string; bg: string; text: string; subtext: string; iconColor: string }> = {
+      default: { border: 'var(--border)',   bg: 'transparent',          text: 'var(--foreground)',     subtext: 'var(--muted-foreground)', iconColor: 'var(--muted-foreground)' },
+      active:  { border: 'var(--primary)',  bg: 'color-mix(in oklch, var(--primary) 8%, transparent)', text: 'var(--primary)',        subtext: 'var(--primary)',         iconColor: 'var(--primary)' },
+      success: { border: '#16a34a',         bg: 'color-mix(in oklch, #16a34a 8%, transparent)',         text: '#15803d',               subtext: '#16a34a',                iconColor: '#16a34a' },
+      error:   { border: 'var(--destructive)', bg: 'color-mix(in oklch, var(--destructive) 8%, transparent)', text: 'var(--destructive)', subtext: 'var(--destructive)', iconColor: 'var(--destructive)' },
+    }
+    const vs = variantStyles[dzVariant] ?? variantStyles.default
+
+    return (
+      <div
+        style={{
+          borderStyle: borderStyle as React.CSSProperties['borderStyle'],
+          borderWidth: 2,
+          borderColor: (props.borderColor as string) || vs.border,
+          backgroundColor: (props.bgColor as string) || vs.bg,
+          borderRadius: radius,
+          color: (props.textColor as string) || vs.text,
+          minWidth: 320,
+        }}
+        className="flex flex-col items-center justify-center gap-2 px-10 py-10 cursor-pointer select-none transition-colors"
+      >
+        {UploadIcon
+          ? <UploadIcon size={32} style={{ color: vs.iconColor }} className="mb-1 shrink-0" />
+          : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: vs.iconColor }} className="mb-1 shrink-0 opacity-60">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+        }
+        <p className="text-sm font-medium leading-tight text-center">{(props.title as string) ?? 'Drop files here'}</p>
+        <p className="text-xs text-center leading-tight" style={{ color: vs.subtext, opacity: 0.8 }}>
+          {(props.description as string) ?? 'or click to browse'}
+        </p>
+        {((props.acceptedTypes as string) || (props.maxSize as string)) && (
+          <p className="text-[11px] text-center mt-1" style={{ color: vs.subtext, opacity: 0.6 }}>
+            {[props.acceptedTypes as string, props.maxSize ? `Max ${props.maxSize as string}` : ''].filter(Boolean).join(' · ')}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (name === 'Accordion') {
+    const acVariant = (props.variant as string) ?? 'default'
+    const itemCount = (props.itemCount as number) ?? 3
+    const multiple = (props.multiple as boolean) ?? false
+    const chevronSide = (props.chevronSide as string) ?? 'right'
+    const bgColor = (props.bgColor as string) || undefined
+    const triggerColor = (props.triggerColor as string) || undefined
+    const contentColor = (props.contentColor as string) || undefined
+    const borderColor = (props.borderColor as string) || 'var(--border)'
+
+    const variantItemClass: Record<string, string> = {
+      default:   'not-last:border-b border-border',
+      separated: 'border border-border rounded-lg mb-2',
+      bordered:  'border border-border first:rounded-t-lg last:rounded-b-lg not-last:border-b-0',
+      ghost:     '',
+    }
+    const variantTriggerClass: Record<string, string> = {
+      default:   'hover:bg-muted/40 px-1',
+      separated: 'hover:bg-muted/40 px-3',
+      bordered:  'hover:bg-muted/40 px-3',
+      ghost:     'hover:bg-transparent px-1',
+    }
+
+    return (
+      <Accordion
+        type={multiple ? 'multiple' : 'single'}
+        collapsible={!multiple}
+        defaultValue="item-0"
+        className="w-[340px]"
+        style={{ backgroundColor: bgColor, borderRadius: radius }}
+      >
+        {Array.from({ length: itemCount }, (_, i) => {
+          const LeadingIcon = props[`item${i}LeadingIcon`]
+            ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props[`item${i}LeadingIcon`] as string] ?? null
+            : null
+          const TrailingIcon = props[`item${i}TrailingIcon`]
+            ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props[`item${i}TrailingIcon`] as string] ?? null
+            : null
+          return (
+            <AccordionItem
+              key={i}
+              value={`item-${i}`}
+              className={variantItemClass[acVariant]}
+              style={{ borderColor, borderRadius: acVariant === 'separated' ? radius : undefined }}
+            >
+              <AccordionTrigger
+                className={cn('py-3 text-sm font-medium flex-row-reverse justify-end gap-2', variantTriggerClass[acVariant], chevronSide === 'right' && 'flex-row justify-between')}
+                style={{ color: triggerColor }}
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  {LeadingIcon && <LeadingIcon size={15} className="shrink-0" />}
+                  <span>{(props[`item${i}Title`] as string) ?? `Section ${i + 1}`}</span>
+                </span>
+                {TrailingIcon && <TrailingIcon size={15} className="shrink-0 ml-auto mr-1" />}
+              </AccordionTrigger>
+              <AccordionContent
+                className={cn(acVariant === 'separated' || acVariant === 'bordered' ? 'px-3' : 'px-1')}
+                style={{ color: contentColor }}
+              >
+                {(props[`item${i}Content`] as string) ?? 'Content goes here.'}
+              </AccordionContent>
+            </AccordionItem>
+          )
+        })}
+      </Accordion>
+    )
+  }
+
   if (name === 'Alert') {
+    const alertVariant = (props.variant as string) ?? 'default'
+    const leadingIconName = props.leadingIcon as string | undefined
+    const trailingIconName = props.trailingIcon as string | undefined
+    const LeadingIcon = leadingIconName
+      ? (LucideIcons as unknown as Record<string, React.FC<{ className?: string }>>)[leadingIconName]
+      : undefined
+    const TrailingIcon = trailingIconName
+      ? (LucideIcons as unknown as Record<string, React.FC<{ className?: string }>>)[trailingIconName]
+      : undefined
+    const variantClass: Record<string, string> = {
+      success: 'border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 [&>svg]:text-green-600 dark:[&>svg]:text-green-400',
+      warning: 'border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 [&>svg]:text-amber-500',
+      info:    'border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 [&>svg]:text-blue-500',
+    }
+    const shadcnVariant: AlertVariant = alertVariant === 'destructive' ? 'destructive' : 'default'
+    const alertBgColor = props.bgColor as string | undefined
+    const alertTextColor = props.textColor as string | undefined
+    const alertBorderColor = props.borderColor as string | undefined
+    const colorStyle: React.CSSProperties = {
+      borderRadius: radius,
+      ...(alertBgColor ? { backgroundColor: alertBgColor } : {}),
+      ...(alertTextColor ? { color: alertTextColor } : {}),
+      ...(alertBorderColor ? { borderColor: alertBorderColor } : {}),
+    }
     return (
       <Alert
-        variant={(props.variant as AlertVariant) ?? 'default'}
-        className="w-[380px]"
-        style={{ borderRadius: radius }}
+        variant={shadcnVariant}
+        className={cn('w-[380px]', variantClass[alertVariant], trailingIconName && 'pr-12')}
+        style={colorStyle}
       >
+        {LeadingIcon && <LeadingIcon className="h-4 w-4" />}
         <AlertTitle>{(props.title as string) ?? 'Heads up!'}</AlertTitle>
         <AlertDescription>{(props.description as string) ?? 'You can add components to your app using the CLI.'}</AlertDescription>
+        {TrailingIcon && (
+          <div className="absolute right-4 top-4">
+            <TrailingIcon className="h-4 w-4 opacity-50" />
+          </div>
+        )}
       </Alert>
     )
   }
@@ -2808,27 +3936,42 @@ function ComponentPreview({
   }
 
   if (name === 'Badge') {
-    const badgePadding = props.padding as PaddingValue | undefined
+    const badgeSize = (props.size as string) ?? 'md'
+    const sizePreset = BADGE_SIZE_PRESETS[badgeSize] ?? BADGE_SIZE_PRESETS.md
+    const badgePadding = (props.padding as PaddingValue | undefined) ?? sizePreset.padding
+    const badgeVariant = (props.variant as BadgeVariant) ?? 'default'
     const BadgeLeadingIcon = props.leadingIcon
       ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props.leadingIcon as string] ?? null
       : null
+    const BadgeTrailingIcon = props.trailingIcon
+      ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props.trailingIcon as string] ?? null
+      : null
+    const badgeVariantClass: Record<string, string> = {
+      success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+      info:    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    }
+    const shadcnBadgeVariant: BadgeVariant = ['success', 'warning', 'info'].includes(badgeVariant) ? 'outline' : badgeVariant
     return (
       <Badge
-        variant={(props.variant as BadgeVariant) ?? 'default'}
+        variant={shadcnBadgeVariant}
+        className={badgeVariantClass[badgeVariant]}
         style={{
           backgroundColor: (props.bgColor as string) || undefined,
           color: (props.textColor as string) || undefined,
           borderRadius: radius,
-          fontSize: props.fontSize ? `${props.fontSize}px` : undefined,
+          height: `${sizePreset.height}px`,
+          fontSize: `${(props.fontSize as number) ?? sizePreset.fontSize}px`,
           fontWeight: props.fontWeight as string | undefined,
-          paddingTop: badgePadding ? `${badgePadding.top}px` : undefined,
-          paddingBottom: badgePadding ? `${badgePadding.bottom}px` : undefined,
-          paddingLeft: badgePadding ? `${badgePadding.left}px` : undefined,
-          paddingRight: badgePadding ? `${badgePadding.right}px` : undefined,
+          paddingTop: `${badgePadding.top}px`,
+          paddingBottom: `${badgePadding.bottom}px`,
+          paddingLeft: `${badgePadding.left}px`,
+          paddingRight: `${badgePadding.right}px`,
         }}
       >
         {BadgeLeadingIcon && <BadgeLeadingIcon size={12} className="shrink-0" />}
         {(props.label as string) ?? 'Badge'}
+        {BadgeTrailingIcon && <BadgeTrailingIcon size={12} className="shrink-0" />}
       </Badge>
     )
   }
@@ -3008,6 +4151,68 @@ function ComponentPreview({
     )
   }
 
+  if (name === 'Input OTP') {
+    const length = (props.length as number) ?? 6
+    const grouped = (props.grouped as boolean) ?? false
+    const slotStyle = (props.slotStyle as string) ?? 'bordered'
+    const slotSize = (props.slotSize as string) ?? 'md'
+    const mask = (props.mask as boolean) ?? false
+    const disabled = (props.disabled as boolean) ?? false
+    const rawValue = (props.previewValue as string) ?? ''
+    const value = mask ? rawValue.replace(/./g, '●') : rawValue
+    const half = Math.floor(length / 2)
+
+    const slotDim: Record<string, string> = { sm: '28px', md: '36px', lg: '48px' }
+    const slotFontSize: Record<string, string> = { sm: '11px', md: '14px', lg: '18px' }
+    const dim = slotDim[slotSize] ?? slotDim.md
+    const fontSize = slotFontSize[slotSize] ?? slotFontSize.md
+    const borderColor = (props.slotBorder as string) || 'var(--input)'
+    const bgColor = slotStyle === 'filled' ? ((props.slotBg as string) || 'var(--muted)') : ((props.slotBg as string) || 'transparent')
+    const textColor = (props.textColor as string) || 'var(--foreground)'
+
+    const renderSlots = (count: number, offset: number) =>
+      Array.from({ length: count }, (_, i) => {
+        const char = value[offset + i] ?? ''
+        const isFirst = i === 0
+        const isLast = i === count - 1
+        const br = slotStyle === 'underline' ? '0px'
+          : isFirst && isLast ? radius
+          : isFirst ? `${radius} 0 0 ${radius}`
+          : isLast  ? `0 ${radius} ${radius} 0`
+          : '0'
+        return (
+          <div
+            key={offset + i}
+            style={{
+              width: dim, height: dim, fontSize,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'monospace', borderRadius: br,
+              borderTop:    slotStyle === 'underline' ? 'none' : `1px solid ${borderColor}`,
+              borderBottom: `1px solid ${borderColor}`,
+              borderLeft:   slotStyle === 'underline' || !isFirst ? 'none' : `1px solid ${borderColor}`,
+              borderRight:  slotStyle === 'underline' ? 'none' : `1px solid ${borderColor}`,
+              backgroundColor: bgColor, color: textColor,
+              opacity: disabled ? 0.5 : 1,
+            }}
+          >
+            {char || <div style={{ width: '1px', height: '1em', backgroundColor: 'currentColor', opacity: 0.2 }} />}
+          </div>
+        )
+      })
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ display: 'flex' }}>{renderSlots(grouped ? half : length, 0)}</div>
+        {grouped && (
+          <>
+            <span style={{ padding: '0 6px', color: 'var(--muted-foreground)', fontSize: '18px', lineHeight: 1 }}>—</span>
+            <div style={{ display: 'flex' }}>{renderSlots(length - half, half)}</div>
+          </>
+        )}
+      </div>
+    )
+  }
+
   if (name === 'Input') {
     const hasError = (props.errorState as boolean) ?? false
     const inputPadding = props.padding as PaddingValue | undefined
@@ -3042,24 +4247,124 @@ function ComponentPreview({
     const fontWeightMap: Record<string, string> = { normal: '400', medium: '500', semibold: '600', bold: '700' }
     const letterSpacingMap: Record<string, string> = { tight: '-0.025em', normal: '0em', wide: '0.05em' }
     const isDisabled = (props.disabled as boolean) ?? false
+    const LabelLeadingIcon = props.leadingIcon
+      ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props.leadingIcon as string] ?? null
+      : null
+    const LabelTrailingIcon = props.trailingIcon
+      ? (LucideIcons as unknown as Record<string, LucideIconComp | undefined>)[props.trailingIcon as string] ?? null
+      : null
+    const fontSize = (props.fontSize as number) ?? 14
     return (
       <Label
-        className={cn('text-sm', isDisabled && 'opacity-50 cursor-not-allowed')}
+        className={cn('flex items-center gap-1', isDisabled && 'opacity-50 cursor-not-allowed')}
         style={{
-          fontSize: `${(props.fontSize as number) ?? 14}px`,
+          fontSize: `${fontSize}px`,
           fontWeight: fontWeightMap[(props.fontWeight as string) ?? 'medium'] ?? '500',
           letterSpacing: letterSpacingMap[(props.letterSpacing as string) ?? 'normal'] ?? '0em',
           color: (props.textColor as string) || undefined,
         }}
       >
+        {LabelLeadingIcon && <LabelLeadingIcon size={fontSize} className="shrink-0" />}
         {(props.text as string) ?? 'Form label'}
         {(props.required as boolean) && <span className="text-destructive ml-0.5">*</span>}
+        {LabelTrailingIcon && <LabelTrailingIcon size={fontSize} className="shrink-0" />}
       </Label>
     )
   }
 
   if (name === 'Popover') {
     return <PopoverPreview props={props} globalRadius={globalRadius} />
+  }
+
+  if (name === 'Pagination') {
+    const pgVariant    = (props.variant      as string)  ?? 'default'
+    const totalPages   = (props.totalPages   as number)  ?? 5
+    const activePage   = Math.min(Math.max((props.activePage as number) ?? 3, 1), totalPages)
+    const showPrevNext = (props.showPrevNext as boolean) ?? true
+    const showEllipsis = (props.showEllipsis as boolean) ?? true
+    const prevLabel    = (props.prevLabel    as string)  ?? 'Previous'
+    const nextLabel    = (props.nextLabel    as string)  ?? 'Next'
+    const pgSize       = (props.size         as string)  ?? 'md'
+    const activeBg     = (props.activeBg     as string)  || undefined
+    const activeText   = (props.activeText   as string)  || undefined
+    const textColor    = (props.textColor    as string)  || undefined
+
+    const btnRadius = pgVariant === 'rounded' ? '999px' : radius
+    const btnSize: Record<string, string> = { sm: 'icon', md: 'icon', lg: 'icon' }
+    const linkSize = btnSize[pgSize] ?? 'icon'
+
+    // Build page number list with ellipsis
+    const getPages = (): (number | 'ellipsis')[] => {
+      if (!showEllipsis || totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
+      const pages: (number | 'ellipsis')[] = [1]
+      if (activePage > 3) pages.push('ellipsis')
+      for (let p = Math.max(2, activePage - 1); p <= Math.min(totalPages - 1, activePage + 1); p++) pages.push(p)
+      if (activePage < totalPages - 2) pages.push('ellipsis')
+      pages.push(totalPages)
+      return pages
+    }
+
+    const activeClass = cn(
+      pgVariant === 'filled'  && 'bg-primary! text-primary-foreground! border-primary! hover:bg-primary/90!',
+      pgVariant === 'minimal' && 'bg-transparent! border-transparent! font-semibold underline underline-offset-2',
+    )
+    const inactiveClass = cn(
+      pgVariant === 'minimal' && 'border-transparent! bg-transparent!',
+    )
+
+    return (
+      <Pagination style={{ color: textColor }}>
+        <PaginationContent className="flex-wrap justify-center gap-0.5">
+          {showPrevNext && (
+            <PaginationItem>
+              <PaginationPrevious
+                text={prevLabel}
+                href="#"
+                className={cn(inactiveClass, pgSize === 'sm' && 'text-xs h-7! px-2!')}
+                style={{ borderRadius: btnRadius, color: textColor }}
+                onClick={(e) => e.preventDefault()}
+              />
+            </PaginationItem>
+          )}
+          {getPages().map((p, i) =>
+            p === 'ellipsis' ? (
+              <PaginationItem key={`ell-${i}`}>
+                <PaginationEllipsis />
+              </PaginationItem>
+            ) : (
+              <PaginationItem key={p}>
+                <PaginationLink
+                  href="#"
+                  isActive={p === activePage}
+                  size={linkSize as 'icon'}
+                  className={cn(p === activePage ? activeClass : inactiveClass, pgSize === 'sm' && 'size-7! text-xs!', pgSize === 'lg' && 'size-10! text-base!')}
+                  style={{
+                    borderRadius: btnRadius,
+                    ...(p === activePage && activeBg    ? { backgroundColor: activeBg,  borderColor: activeBg  } : {}),
+                    ...(p === activePage && activeText  ? { color: activeText } : {}),
+                    ...(!( p === activePage) && textColor ? { color: textColor } : {}),
+                  }}
+                  onClick={(e) => { e.preventDefault(); updateProp('activePage', p) }}
+                >
+                  {p}
+                </PaginationLink>
+              </PaginationItem>
+            )
+          )}
+          {showPrevNext && (
+            <PaginationItem>
+              <PaginationNext
+                text={nextLabel}
+                href="#"
+                className={cn(inactiveClass, pgSize === 'sm' && 'text-xs h-7! px-2!')}
+                style={{ borderRadius: btnRadius, color: textColor }}
+                onClick={(e) => e.preventDefault()}
+              />
+            </PaginationItem>
+          )}
+        </PaginationContent>
+      </Pagination>
+    )
   }
 
   if (name === 'Progress') {
@@ -3254,6 +4559,78 @@ function ComponentPreview({
         />
       </div>
     )
+  }
+
+  if (name === 'Spinner') {
+    const variant  = (props.variant  as string) ?? 'border'
+    const size     = (props.size     as string) ?? 'md'
+    const speed    = (props.speed    as string) ?? 'normal'
+    const label    = (props.label    as string) ?? ''
+    const labelPos = (props.labelPosition as string) ?? 'bottom'
+    const color    = (props.color     as string) || 'var(--primary)'
+    const trackColor = (props.trackColor as string) || 'var(--border)'
+    const labelColor = (props.labelColor as string) || 'var(--muted-foreground)'
+    const thickness  = (props.thickness as number) ?? 2
+
+    const dimMap: Record<string, number> = { xs: 14, sm: 20, md: 28, lg: 40, xl: 56 }
+    const dim = dimMap[size] ?? dimMap.md
+    const speedMap: Record<string, string> = { slow: '2s', normal: '1s', fast: '0.5s' }
+    const dur = speedMap[speed] ?? '1s'
+
+    let spinnerEl: React.ReactNode = null
+
+    if (variant === 'border') {
+      spinnerEl = (
+        <div
+          className="animate-spin rounded-full shrink-0"
+          style={{
+            width: dim, height: dim,
+            borderWidth: thickness,
+            borderStyle: 'solid',
+            borderColor: `${trackColor} ${trackColor} ${trackColor} ${color}`,
+            animationDuration: dur,
+          }}
+        />
+      )
+    } else if (variant === 'dots') {
+      const dotSize = Math.max(4, Math.round(dim * 0.22))
+      spinnerEl = (
+        <div className="flex items-center gap-1" style={{ '--spinner-speed': dur } as React.CSSProperties}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="spinner-dot rounded-full shrink-0" style={{ width: dotSize, height: dotSize, backgroundColor: color }} />
+          ))}
+        </div>
+      )
+    } else if (variant === 'bars') {
+      const barW = Math.max(3, Math.round(dim * 0.14))
+      const barH = dim
+      spinnerEl = (
+        <div className="flex items-center gap-0.5" style={{ height: barH, '--spinner-speed': dur } as React.CSSProperties}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="spinner-bar rounded-sm shrink-0" style={{ width: barW, height: barH, backgroundColor: color }} />
+          ))}
+        </div>
+      )
+    } else if (variant === 'pulse') {
+      spinnerEl = (
+        <div className="relative shrink-0" style={{ width: dim, height: dim }}>
+          <div
+            className="spinner-pulse-ring absolute inset-0 rounded-full"
+            style={{ border: `${thickness}px solid ${color}`, '--spinner-speed': dur } as React.CSSProperties}
+          />
+          <div className="absolute inset-0 rounded-full" style={{ backgroundColor: color, opacity: 0.25 }} />
+        </div>
+      )
+    }
+
+    const inner = (
+      <div className={cn('flex items-center', labelPos === 'bottom' ? 'flex-col gap-2' : 'flex-row gap-3')}>
+        {spinnerEl}
+        {label && <span className="text-xs" style={{ color: labelColor }}>{label}</span>}
+      </div>
+    )
+
+    return inner
   }
 
   if (name === 'Switch') {
@@ -3764,86 +5141,158 @@ function ColorsPanel({
   onApplyPreset: (preset: TokenPreset) => void
 }) {
   const [editingKey, setEditingKey] = useState<SemanticTokenKey | null>(null)
+  const [colorSearch, setColorSearch] = useState('')
+
+  const q = colorSearch.trim().toLowerCase()
+
+  // Filter token groups by search
+  const filteredTokenGroups = q
+    ? TOKEN_GROUPS.map(g => ({ ...g, keys: g.keys.filter(k => TOKEN_LABELS[k].toLowerCase().includes(q)) })).filter(g => g.keys.length > 0)
+    : TOKEN_GROUPS
+
+  // Filter Tailwind families by name or shade number
+  const filteredTailwind: TailwindFamily[] = q
+    ? TAILWIND_PALETTE.filter(f =>
+        f.name.toLowerCase().includes(q) ||
+        f.shades.some(s => `${f.name.toLowerCase()}-${s.shade}`.includes(q) || String(s.shade).startsWith(q))
+      )
+    : TAILWIND_PALETTE
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      {/* Preset strip */}
-      <div className="px-3 pt-4 pb-3 border-b border-border/40 shrink-0">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Presets</p>
-        <div className="flex flex-wrap gap-1.5">
-          {TOKEN_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              onClick={() => onApplyPreset(preset)}
-              className={cn(
-                'flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs cursor-pointer transition-colors',
-                activePresetName === preset.name
-                  ? 'bg-accent/15 border-accent/30 text-foreground'
-                  : 'border-transparent hover:bg-muted text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <span className="flex gap-0.5">
-                {preset.swatchColors.map((c, i) => (
-                  <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }} />
-                ))}
-              </span>
-              {preset.name}
-            </button>
-          ))}
-        </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Search */}
+      <div className="px-3 pt-3 pb-2 shrink-0">
+        <Input
+          placeholder="Search colors..."
+          value={colorSearch}
+          onChange={(e) => setColorSearch(e.target.value)}
+          className="h-7 text-xs rounded-md"
+        />
       </div>
 
-      {/* Token rows */}
-      <div className="flex-1 py-2">
-        {TOKEN_GROUPS.map((group) => (
-          <div key={group.label}>
-            <p className="px-3 pt-3 pb-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{group.label}</p>
-            {group.keys.map((key) => (
-              <div key={key} className="relative">
-                <div className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 group">
-                  {/* Swatch */}
-                  <div
-                    className="w-6 h-6 rounded-md border border-border shrink-0 cursor-pointer"
-                    style={{ backgroundColor: tokens[key], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)' }}
-                    onClick={() => setEditingKey(editingKey === key ? null : key)}
-                  />
-                  {/* Label */}
-                  <span className="text-xs text-foreground flex-1 truncate">{TOKEN_LABELS[key]}</span>
-                  {/* Value chip */}
-                  <button
-                    onClick={() => setEditingKey(editingKey === key ? null : key)}
-                    className="text-[10px] font-mono text-muted-foreground/60 hover:text-muted-foreground cursor-pointer transition-colors opacity-0 group-hover:opacity-100 truncate max-w-[80px]"
-                  >
-                    Edit
-                  </button>
+      <div className="flex-1 overflow-y-auto">
+        {/* ── Design Tokens ─────────────────────────────── */}
+        {filteredTokenGroups.length > 0 && (
+          <>
+            {/* Preset strip */}
+            {!q && (
+              <div className="px-3 pt-2 pb-3 border-b border-border/40">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Presets</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {TOKEN_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      onClick={() => onApplyPreset(preset)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs cursor-pointer transition-colors',
+                        activePresetName === preset.name
+                          ? 'bg-accent/15 border-accent/30 text-foreground'
+                          : 'border-transparent hover:bg-muted text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      <span className="flex gap-0.5">
+                        {preset.swatchColors.map((c, i) => (
+                          <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }} />
+                        ))}
+                      </span>
+                      {preset.name}
+                    </button>
+                  ))}
                 </div>
-
-                {/* Inline color picker */}
-                {editingKey === key && (
-                  <div className="mx-3 mb-2 p-2 rounded-lg border border-border bg-muted/30">
-                    <div className="flex flex-wrap gap-1">
-                      {CURATED_COLORS.map((color) => (
-                        <button
-                          key={color.oklch}
-                          title={color.label}
-                          onClick={() => {
-                            onTokenChange(key, color.oklch)
-                            setEditingKey(null)
-                          }}
-                          className={cn(
-                            'w-5 h-5 rounded-sm cursor-pointer transition-all hover:scale-110',
-                            tokens[key] === color.oklch && 'ring-2 ring-offset-1 ring-foreground',
-                          )}
-                          style={{ backgroundColor: color.hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
-        ))}
+            )}
+
+            <div className="px-3 pt-4 pb-0.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Design Tokens</p>
+            </div>
+
+            {/* Token rows */}
+            <div className="py-1">
+              {filteredTokenGroups.map((group) => (
+                <div key={group.label}>
+                  <p className="px-3 pt-3 pb-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{group.label}</p>
+                  {group.keys.map((key) => (
+                    <div key={key} className="relative" data-health-id={`token:${key}`}>
+                      <div className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 group">
+                        <div
+                          className="w-6 h-6 rounded-md border border-border shrink-0 cursor-pointer"
+                          style={{ backgroundColor: tokens[key], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)' }}
+                          onClick={() => setEditingKey(editingKey === key ? null : key)}
+                        />
+                        <span className="text-xs text-foreground flex-1 truncate">{TOKEN_LABELS[key]}</span>
+                        <button
+                          onClick={() => setEditingKey(editingKey === key ? null : key)}
+                          className="text-[10px] font-mono text-muted-foreground/60 hover:text-muted-foreground cursor-pointer transition-colors opacity-0 group-hover:opacity-100 truncate max-w-[80px]"
+                        >
+                          Edit
+                        </button>
+                      </div>
+
+                      {editingKey === key && (
+                        <div className="mx-3 mb-2 p-2 rounded-lg border border-border bg-muted/30">
+                          <div className="flex flex-wrap gap-1">
+                            {CURATED_COLORS.map((color) => (
+                              <button
+                                key={color.oklch}
+                                title={color.label}
+                                onClick={() => { onTokenChange(key, color.oklch); setEditingKey(null) }}
+                                className={cn(
+                                  'w-5 h-5 rounded-sm cursor-pointer transition-all hover:scale-110',
+                                  tokens[key] === color.oklch && 'ring-2 ring-offset-1 ring-foreground',
+                                )}
+                                style={{ backgroundColor: color.hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── Tailwind Colors ────────────────────────────── */}
+        {filteredTailwind.length > 0 && (
+          <>
+            <div className="px-3 pt-5 pb-0.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Tailwind Colors</p>
+            </div>
+
+            <div className="py-2 pb-4">
+              {filteredTailwind.map((family) => (
+                <div key={family.name} className="flex items-center gap-2 px-3 py-1 group hover:bg-muted/30">
+                  <span className="text-xs text-muted-foreground w-14 shrink-0">{family.name}</span>
+                  <div className="flex gap-0.5 flex-1">
+                    {family.shades.map(({ shade, hex }) => (
+                      <button
+                        key={shade}
+                        title={`${family.name} ${shade} · ${hex}`}
+                        onClick={() => {
+                          if (editingKey) {
+                            onTokenChange(editingKey, hexToOklch(hex))
+                            setEditingKey(null)
+                          }
+                        }}
+                        className={cn(
+                          'flex-1 h-5 rounded-sm transition-all',
+                          editingKey ? 'cursor-pointer hover:scale-y-125 hover:rounded-none' : 'cursor-default',
+                        )}
+                        style={{ backgroundColor: hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {filteredTokenGroups.length === 0 && filteredTailwind.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-8">No colors match "{colorSearch}"</p>
+        )}
       </div>
     </div>
   )
@@ -3917,6 +5366,155 @@ function StatesPreview({
         </div>
       ))}
     </div>
+  )
+}
+
+// ─── Design System Health ─────────────────────────────────────────────────────
+
+function parseOklchL(value: string): number | null {
+  const m = value.match(/oklch\(\s*([\d.]+)/)
+  return m ? parseFloat(m[1]) : null
+}
+
+const COLOR_FIELDS_TO_CHECK = [
+  'bgColor', 'textColor', 'borderColor', 'activeColor', 'inactiveColor',
+  'activeTextColor', 'trackColor', 'indicatorColor', 'linkColor', 'separatorColor',
+]
+
+function analyzeDesignSystem(
+  tokens: SemanticTokens,
+  allComponentProps: Record<string, ComponentProps>,
+  globalRadius: number,
+): HealthReport {
+  const issues: HealthIssue[] = []
+
+  // A. Too many custom color overrides
+  const customOverrideComponents: string[] = []
+  for (const [comp, props] of Object.entries(allComponentProps)) {
+    const hasCustom = COLOR_FIELDS_TO_CHECK.some((f) => {
+      const v = props[f] as string | undefined
+      return v && v !== '' && !v.startsWith('var(--')
+    })
+    if (hasCustom) customOverrideComponents.push(comp)
+  }
+  if (customOverrideComponents.length >= 3) {
+    issues.push({
+      id: 'custom-overrides',
+      level: 'warning',
+      title: `${customOverrideComponents.length} components use custom color overrides`,
+      description: 'Consider using semantic tokens for better consistency across themes.',
+      target: { type: 'component', name: customOverrideComponents[0] },
+    })
+  }
+
+  // B. Radius inconsistency
+  for (const [comp, props] of Object.entries(allComponentProps)) {
+    if (typeof props.borderRadius === 'number' && props.borderRadius !== globalRadius) {
+      issues.push({
+        id: `radius:${comp}`,
+        level: 'warning',
+        title: `${comp} radius differs from global radius`,
+        description: `${comp} uses ${props.borderRadius}px; global is ${globalRadius}px.`,
+        target: { type: 'component', name: comp, field: 'borderRadius' },
+      })
+    }
+  }
+
+  // C. Customized tokens not explicitly bound to any component
+  const usedTokenKeys = new Set<string>()
+  for (const props of Object.values(allComponentProps)) {
+    for (const v of Object.values(props)) {
+      if (typeof v === 'string' && v.startsWith('var(--')) {
+        for (const key of TOKEN_KEYS) {
+          if (v === `var(${TOKEN_CSS_VARS[key]})`) usedTokenKeys.add(key)
+        }
+      }
+    }
+  }
+  const importantTokens: SemanticTokenKey[] = ['accent', 'secondary', 'destructive']
+  for (const key of importantTokens) {
+    if (tokens[key] !== DEFAULT_TOKENS[key] && !usedTokenKeys.has(key)) {
+      issues.push({
+        id: `unused-token:${key}`,
+        level: 'warning',
+        title: `${TOKEN_LABELS[key]} token customized but not used`,
+        description: 'This token has been modified but no component is explicitly bound to it.',
+        target: { type: 'token', name: key },
+      })
+    }
+  }
+
+  // D. Background set without foreground pairing
+  for (const [comp, props] of Object.entries(allComponentProps)) {
+    const bg = props.bgColor as string | undefined
+    const text = props.textColor as string | undefined
+    if (bg && bg !== '' && (!text || text === '')) {
+      issues.push({
+        id: `pairing:${comp}`,
+        level: 'warning',
+        title: `${comp} background set without text color`,
+        description: 'Custom background may not pair well with the default foreground.',
+        target: { type: 'component', name: comp, field: 'textColor' },
+      })
+    }
+  }
+
+  // E. Basic contrast check for key token pairs (OKLCH lightness delta)
+  const contrastPairs: [SemanticTokenKey, SemanticTokenKey][] = [
+    ['primary', 'primaryForeground'],
+    ['destructive', 'destructiveForeground'],
+    ['background', 'foreground'],
+    ['card', 'cardForeground'],
+  ]
+  for (const [bgKey, fgKey] of contrastPairs) {
+    const bgL = parseOklchL(tokens[bgKey])
+    const fgL = parseOklchL(tokens[fgKey])
+    if (bgL !== null && fgL !== null && Math.abs(bgL - fgL) < 0.4) {
+      issues.push({
+        id: `contrast:${bgKey}`,
+        level: 'error',
+        title: `Low contrast: ${TOKEN_LABELS[bgKey]} vs ${TOKEN_LABELS[fgKey]}`,
+        description: `Lightness difference is ${Math.abs(bgL - fgL).toFixed(2)} — increase contrast for accessibility.`,
+        target: { type: 'token', name: bgKey },
+      })
+    }
+  }
+
+  const errors = issues.filter((i) => i.level === 'error').length
+  const warnings = issues.filter((i) => i.level === 'warning').length
+  const status: HealthReport['status'] = errors > 0 ? 'error' : warnings > 0 ? 'warning' : 'healthy'
+  return { status, issues, summary: { errors, warnings } }
+}
+
+function IssueRow({ issue, onNavigate }: { issue: HealthIssue; onNavigate: (issue: HealthIssue) => void }) {
+  const clickable = !!issue.target
+  return (
+    <button
+      onClick={() => clickable && onNavigate(issue)}
+      disabled={!clickable}
+      className={cn(
+        'w-full text-left px-3 py-2.5 rounded-lg border transition-colors',
+        issue.level === 'error'
+          ? 'border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20'
+          : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20',
+        clickable ? 'cursor-pointer hover:brightness-95' : 'cursor-default',
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 mt-px">
+          {issue.level === 'error' ? <IconError size={14} /> : <IconWarning size={14} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-foreground">{issue.title}</p>
+          {issue.description && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{issue.description}</p>
+          )}
+          {clickable && (
+            <p className="text-[10px] text-muted-foreground/40 mt-1">Click to navigate</p>
+          )}
+        </div>
+      </div>
+    </button>
   )
 }
 
@@ -4006,8 +5604,8 @@ function ExportSheet({
             <div className="flex flex-col gap-2">
               {healthChecks.map((check) => (
                 <div key={check.label} className="flex items-start gap-2">
-                  <span className={cn('text-xs font-mono mt-px shrink-0', check.pass ? 'text-green-600 dark:text-green-400' : 'text-amber-500')}>
-                    {check.pass ? '✓' : '!'}
+                  <span className="shrink-0 mt-px">
+                    {check.pass ? <IconSuccess size={14} /> : <IconWarning size={14} />}
                   </span>
                   <div className="min-w-0">
                     <span className={cn('text-xs', check.pass ? 'text-foreground/70' : 'text-foreground')}>
@@ -4099,8 +5697,60 @@ export default function Editor() {
   const [zoomLevel, setZoomLevel] = useState(100)
   const [exportOpen, setExportOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [healthOpen, setHealthOpen] = useState(false)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [activeThemeId, setActiveThemeId] = useState(projectId ?? '')
   const [activeDots, setActiveDots] = useState(paletteColors)
+
+  // ─── Reset all project customizations to the neutral default shadcn baseline ──
+  // Single canonical source of truth: TOKEN_PRESETS[0] ('Default' neutral preset)
+  function resetCurrentProject() {
+    const defaultPreset = TOKEN_PRESETS[0]
+    setSemanticTokens(defaultPreset.tokens)
+    injectSemanticTokens(defaultPreset.tokens)
+    setAllComponentProps({})
+    setProjectSettings({ globalRadius: 6 })
+    setActivePresetName(defaultPreset.name)
+    setActiveDots(defaultPreset.swatchColors)
+    setActivePrimaryColor(defaultPreset.swatchColors[0])
+    setActiveThemeId(defaultPreset.name)
+    setResetConfirmOpen(false)
+  }
+
+  const healthReport = useMemo(
+    () => analyzeDesignSystem(semanticTokens, allComponentProps, projectSettings.globalRadius),
+    [semanticTokens, allComponentProps, projectSettings.globalRadius],
+  )
+
+  function handleIssueClick(issue: HealthIssue) {
+    setHealthOpen(false)
+    if (!issue.target) return
+    const { type, name } = issue.target
+    if (type === 'component') {
+      setSelectedComponent(name)
+      setLeftPanelView('components')
+    } else if (type === 'token') {
+      setLeftPanelView('colors')
+    }
+    const hid = type === 'token' ? `token:${name}` : `component:${name}`
+    setHighlightId(hid)
+    setTimeout(() => setHighlightId(null), 2000)
+  }
+
+  useEffect(() => {
+    if (!highlightId) return
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-health-id="${highlightId}"]`) as HTMLElement | null
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        el.classList.add('health-pulse')
+        const clear = setTimeout(() => el.classList.remove('health-pulse'), 1600)
+        return () => clearTimeout(clear)
+      }
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [highlightId])
 
   function applyPreset(preset: TokenPreset) {
     setSemanticTokens(preset.tokens)
@@ -4147,6 +5797,11 @@ export default function Editor() {
     if (!projectId) return
     localStorage.setItem(`blox_project_settings_${projectId}`, JSON.stringify(projectSettings))
   }, [projectSettings, projectId])
+
+  useEffect(() => {
+    if (!projectId) return
+    localStorage.setItem(`blox_active_dots_${projectId}`, JSON.stringify(activeDots))
+  }, [activeDots, projectId])
 
   const currentProps = selectedComponent ? (allComponentProps[selectedComponent] ?? {}) : {}
 
@@ -4198,6 +5853,10 @@ export default function Editor() {
         {/* ── Topbar ── */}
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
           <div className="flex items-center gap-1.5 h-full min-w-0">
+            <button onClick={() => navigate('/')} className="shrink-0 flex items-center mr-2">
+              <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-4" />
+            </button>
+            <span className="text-muted-foreground/30 text-sm shrink-0">/</span>
             <button
               onClick={() => navigate('/')}
               className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -4286,6 +5945,41 @@ export default function Editor() {
                 </div>
               </PopoverContent>
             </Popover>
+            {(() => {
+              const healthTip = healthReport.status === 'healthy'
+                ? 'Design system healthy — ready for export'
+                : healthReport.status === 'warning'
+                ? `${healthReport.summary.warnings} warning${healthReport.summary.warnings !== 1 ? 's' : ''} — needs attention`
+                : `${healthReport.summary.errors} error${healthReport.summary.errors !== 1 ? 's' : ''} detected`
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setHealthOpen(true)}
+                      className="flex items-center justify-center w-7 h-7 rounded-md transition-colors cursor-pointer hover:bg-muted"
+                    >
+                      {healthReport.status === 'error' ? <IconError size={16} /> : healthReport.status === 'warning' ? <IconWarning size={16} /> : <IconSuccess size={16} />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{healthTip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })()}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setResetConfirmOpen(true)}
+                  className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <RotateCcw size={14} strokeWidth={1.75} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reset all changes</p>
+              </TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
@@ -4315,21 +6009,23 @@ export default function Editor() {
           {/* ── Left panel ── */}
           <aside className="w-[260px] border-r border-border flex flex-col h-full">
             {/* Panel nav */}
-            <div className="flex shrink-0 border-b border-border/40">
+            <div className="shrink-0 px-2 py-2 border-b border-border/40">
+              <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
               {(['components', 'colors'] as const).map((view) => (
                 <button
                   key={view}
                   onClick={() => setLeftPanelView(view)}
                   className={cn(
-                    'flex-1 py-2.5 text-xs capitalize cursor-pointer transition-colors border-b-2',
+                    'flex-1 py-1.5 text-xs capitalize cursor-pointer transition-all rounded-md',
                     leftPanelView === view
-                      ? 'border-foreground text-foreground font-medium'
-                      : 'border-transparent text-muted-foreground hover:text-foreground',
+                      ? 'bg-background text-foreground font-medium shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {view}
                 </button>
               ))}
+              </div>
             </div>
 
             {leftPanelView === 'components' ? (
@@ -4346,6 +6042,7 @@ export default function Editor() {
                   {filteredComponents.map((name) => (
                     <button
                       key={name}
+                      data-health-id={`component:${name}`}
                       onClick={() => setSelectedComponent(name)}
                       className={cn(
                         'w-full text-left px-3 py-2 rounded-md mx-1 text-sm cursor-pointer transition-colors duration-100',
@@ -4553,6 +6250,95 @@ export default function Editor() {
           globalRadius={projectSettings.globalRadius}
         />
       )}
+
+      {/* ── Design System Health dialog ── */}
+      <Dialog open={healthOpen} onOpenChange={setHealthOpen}>
+        <DialogContent className="max-w-[480px] flex flex-col p-0 max-h-[80vh]">
+          <DialogHeader className="px-5 pt-5 pb-4 border-b border-border shrink-0">
+            <div className="flex items-center gap-2">
+              {healthReport.status === 'error' ? <IconError size={16} className="shrink-0" /> : healthReport.status === 'warning' ? <IconWarning size={16} className="shrink-0" /> : <IconSuccess size={16} className="shrink-0" />}
+              <DialogTitle>Design System Health</DialogTitle>
+            </div>
+            <DialogDescription>
+              {healthReport.status === 'healthy'
+                ? 'No issues found. Your design system is consistent.'
+                : [
+                    healthReport.summary.errors > 0 && `${healthReport.summary.errors} error${healthReport.summary.errors !== 1 ? 's' : ''}`,
+                    healthReport.summary.warnings > 0 && `${healthReport.summary.warnings} warning${healthReport.summary.warnings !== 1 ? 's' : ''}`,
+                  ].filter(Boolean).join(' · ')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="px-5 py-4">
+              {healthReport.status === 'healthy' ? (
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <IconSuccess size={36} className="opacity-50" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">All checks passed</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your design system is consistent and ready for export.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {healthReport.issues.filter((i) => i.level === 'error').length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Errors</p>
+                      <div className="flex flex-col gap-1.5">
+                        {healthReport.issues
+                          .filter((i) => i.level === 'error')
+                          .map((issue) => (
+                            <IssueRow key={issue.id} issue={issue} onNavigate={handleIssueClick} />
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                  {healthReport.issues.filter((i) => i.level === 'warning').length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Warnings</p>
+                      <div className="flex flex-col gap-1.5">
+                        {healthReport.issues
+                          .filter((i) => i.level === 'warning')
+                          .map((issue) => (
+                            <IssueRow key={issue.id} issue={issue} onNavigate={handleIssueClick} />
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="px-5 py-3 border-t border-border shrink-0">
+            <Button variant="outline" className="w-full" size="sm" onClick={() => setHealthOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reset confirmation dialog ── */}
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Reset all changes?</DialogTitle>
+            <DialogDescription>
+              This will remove all token edits, component customizations, and project-level styling changes for this design system and restore the default neutral shadcn preset.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={resetCurrentProject}>
+              Reset all changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }

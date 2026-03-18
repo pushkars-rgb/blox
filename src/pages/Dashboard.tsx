@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { type Project } from '@/data/projects'
 import useProjects from '@/hooks/useProjects'
 import { Check, LayoutGrid, MoreVertical, Plus, Settings, Share2, Trash2 } from 'lucide-react'
@@ -37,9 +38,8 @@ function Sidebar() {
   return (
     <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-sidebar">
       {/* Wordmark */}
-      <div className="flex items-center gap-2 px-4 py-4">
-        <span className="h-4 w-4 rounded-sm bg-primary" />
-        <span className="font-bold text-sidebar-foreground tracking-tight">Blox</span>
+      <div className="flex items-center px-4 py-4">
+        <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-5" />
       </div>
 
       {/* Nav */}
@@ -87,78 +87,70 @@ function ProjectCard({ project, onDeleteRequest }: ProjectCardProps) {
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
 
+  // Use the active theme dots saved by the editor, fall back to project's original colors
+  const displayColors: string[] = (() => {
+    try {
+      const raw = localStorage.getItem(`blox_active_dots_${project.id}`)
+      return raw ? (JSON.parse(raw) as string[]) : project.colors
+    } catch { return project.colors }
+  })()
+
   return (
     <Card
       onClick={() => navigate(`/editor/${project.id}`)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative cursor-pointer rounded-lg p-0 gap-0 border border-border/40 shadow-none transition-all duration-150 ease-out hover:-translate-y-0.5 hover:border-border hover:shadow-md"
+      className="relative cursor-pointer rounded-xl p-0 gap-0 border border-border/40 shadow-none transition-all duration-150 ease-out hover:-translate-y-0.5 hover:border-border/70 hover:shadow-sm"
     >
-      {/* Thumbnail */}
-      <div className="flex h-[100px] items-center justify-center rounded-t-lg bg-muted">
-        <span className="text-[2.5rem] font-semibold leading-none text-muted-foreground">
-          {project.name[0]}
-        </span>
-
-        {/* Kebab menu */}
-        <div
-          className={[
-            'absolute top-2 right-2 transition-opacity duration-150',
-            hovered ? 'opacity-100' : 'opacity-0',
-          ].join(' ')}
-        >
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                onClick={(e) => e.stopPropagation()}
-                className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background/80 backdrop-blur-sm cursor-pointer"
-              >
-                <MoreVertical size={14} strokeWidth={1.75} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  console.log('Share:', project.id)
-                }}
-              >
-                <Share2 size={13} className="mr-2" />
-                Share
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDeleteRequest(project)
-                }}
-                className="text-destructive focus:bg-destructive/10 focus:text-destructive [&_svg]:text-destructive [&:hover_svg]:text-destructive"
-              >
-                <Trash2 size={13} className="mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      {/* Header row: name + meta + kebab */}
+      <CardHeader className="px-4 pt-4 pb-3 gap-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <span className="font-semibold text-sm text-foreground leading-tight block">
+              {project.name}
+            </span>
+            <span className="text-xs text-muted-foreground mt-0.5 block">
+              {project.componentCount} components · {project.lastEdited}
+            </span>
+          </div>
+          <div className={cn('transition-opacity duration-150 shrink-0 -mt-0.5', hovered ? 'opacity-100' : 'opacity-0')}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <MoreVertical size={14} strokeWidth={1.75} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); console.log('Share:', project.id) }}
+                >
+                  <Share2 size={13} className="mr-2" />
+                  Share
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); onDeleteRequest(project) }}
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                >
+                  <Trash2 size={13} className="mr-2" style={{ color: 'var(--destructive)' }} />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
-
-      {/* Body */}
-      <CardHeader className="px-4 pt-[14px] pb-0 gap-0.5">
-        <span className="font-semibold text-sm text-foreground leading-tight">
-          {project.name}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {project.componentCount} components · {project.lastEdited}
-        </span>
       </CardHeader>
 
-      {/* Footer */}
-      <CardFooter className="px-4 pt-3 pb-4 bg-transparent border-t border-border rounded-b-lg">
+      {/* Color dots */}
+      <CardFooter className="px-4 pt-3 pb-4 bg-transparent">
         <div className="flex gap-1.5">
-          {project.colors.map((color) => (
+          {displayColors.map((color) => (
             <span
               key={color}
-              className="h-2.5 w-2.5 rounded-sm"
+              className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: color }}
             />
           ))}
@@ -327,7 +319,7 @@ export default function Dashboard() {
               <h1 className="text-sm font-semibold text-foreground">Projects</h1>
               <Button
                 size="sm"
-                className="h-7 rounded-md gap-1.5 text-xs px-3"
+                className="h-8 rounded-md gap-1.5 text-xs px-3"
                 onClick={() => setDialogOpen(true)}
               >
                 <Plus size={13} strokeWidth={2} />

@@ -157,6 +157,43 @@
   background-color: var(--progress-indicator) !important;
 }
 
+@keyframes health-pulse {
+  0%, 100% { outline: 2px solid transparent; outline-offset: 2px; }
+  50% { outline: 2px solid var(--primary); outline-offset: 2px; }
+}
+
+.health-pulse {
+  animation: health-pulse 0.7s ease 2;
+  border-radius: 4px;
+}
+
+@keyframes spinner-dot-bounce {
+  0%, 80%, 100% { transform: scale(0.55); opacity: 0.35; }
+  40%           { transform: scale(1);    opacity: 1;    }
+}
+@keyframes spinner-bar-grow {
+  0%, 100% { transform: scaleY(0.35); opacity: 0.45; }
+  50%      { transform: scaleY(1);    opacity: 1;    }
+}
+@keyframes spinner-pulse-ring {
+  0%   { transform: scale(0.7); opacity: 1;   }
+  100% { transform: scale(1.9); opacity: 0;   }
+}
+
+.spinner-dot { animation: spinner-dot-bounce var(--spinner-speed, 1.2s) ease-in-out infinite; }
+.spinner-dot:nth-child(1) { animation-delay: 0s;    }
+.spinner-dot:nth-child(2) { animation-delay: 0.2s;  }
+.spinner-dot:nth-child(3) { animation-delay: 0.4s;  }
+
+.spinner-bar { animation: spinner-bar-grow var(--spinner-speed, 1s) ease-in-out infinite; }
+.spinner-bar:nth-child(1) { animation-delay: 0s;     }
+.spinner-bar:nth-child(2) { animation-delay: 0.12s;  }
+.spinner-bar:nth-child(3) { animation-delay: 0.24s;  }
+.spinner-bar:nth-child(4) { animation-delay: 0.36s;  }
+.spinner-bar:nth-child(5) { animation-delay: 0.48s;  }
+
+.spinner-pulse-ring { animation: spinner-pulse-ring var(--spinner-speed, 1.2s) ease-out infinite; }
+
 .canvas-grid {
   background-color: #f8f8f8;
   background-image: radial-gradient(circle, #d4d4d4 1px, transparent 1px);
