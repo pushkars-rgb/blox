@@ -737,20 +737,72 @@ function TokenColorPicker({ value, onChange }: { value: string; onChange: (v: st
   )
 }
 
+// ─── Per-component default colors ─────────────────────────────────────────────
+// CSS var references resolve against the live theme, so swatches update automatically.
+
+const BUTTON_VARIANT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  default:     { bg: 'var(--primary)',     text: 'var(--primary-foreground)',     border: 'transparent' },
+  destructive: { bg: 'var(--destructive)', text: 'var(--destructive-foreground)', border: 'transparent' },
+  outline:     { bg: 'transparent',        text: 'var(--foreground)',             border: 'var(--border)' },
+  secondary:   { bg: 'var(--secondary)',   text: 'var(--secondary-foreground)',   border: 'transparent' },
+  ghost:       { bg: 'transparent',        text: 'var(--foreground)',             border: 'transparent' },
+  link:        { bg: 'transparent',        text: 'var(--primary)',                border: 'transparent' },
+}
+const BADGE_VARIANT_COLORS: Record<string, { bg: string; text: string }> = {
+  default:     { bg: 'var(--primary)',     text: 'var(--primary-foreground)' },
+  secondary:   { bg: 'var(--secondary)',   text: 'var(--secondary-foreground)' },
+  destructive: { bg: 'var(--destructive)', text: 'var(--destructive-foreground)' },
+  outline:     { bg: 'transparent',        text: 'var(--foreground)' },
+  success:     { bg: '#dcfce7',            text: '#166534' },
+  warning:     { bg: '#fef3c7',            text: '#92400e' },
+  info:        { bg: '#dbeafe',            text: '#1e40af' },
+}
+const ALERT_VARIANT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  default:     { bg: 'var(--background)',  text: 'var(--foreground)',  border: 'var(--border)' },
+  destructive: { bg: 'transparent',        text: 'var(--destructive)', border: 'var(--destructive)' },
+}
+const ACCORDION_VARIANT_COLORS: Record<string, { bg: string; trigger: string; content: string; border: string }> = {
+  default:   { bg: 'transparent', trigger: 'var(--foreground)', content: 'var(--muted-foreground)', border: 'var(--border)' },
+  separated: { bg: 'transparent', trigger: 'var(--foreground)', content: 'var(--muted-foreground)', border: 'var(--border)' },
+  bordered:  { bg: 'transparent', trigger: 'var(--foreground)', content: 'var(--muted-foreground)', border: 'var(--border)' },
+  ghost:     { bg: 'transparent', trigger: 'var(--foreground)', content: 'var(--muted-foreground)', border: 'transparent' },
+}
+const DROPZONE_VARIANT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  default: { bg: 'transparent',        text: 'var(--foreground)', border: 'var(--border)' },
+  active:  { bg: 'var(--primary)',      text: 'var(--foreground)', border: 'var(--primary)' },
+  success: { bg: '#16a34a',             text: '#ffffff',           border: '#16a34a' },
+  error:   { bg: 'var(--destructive)',  text: 'var(--foreground)', border: 'var(--destructive)' },
+}
+const SPINNER_VARIANT_COLORS: Record<string, { spinner: string; track: string; label: string }> = {
+  border: { spinner: 'var(--primary)',    track: 'var(--muted)',    label: 'var(--foreground)' },
+  dots:   { spinner: 'var(--foreground)', track: 'transparent',     label: 'var(--foreground)' },
+  bars:   { spinner: 'var(--foreground)', track: 'transparent',     label: 'var(--foreground)' },
+  pulse:  { spinner: 'var(--primary)',    track: 'transparent',     label: 'var(--foreground)' },
+}
+const PAGINATION_VARIANT_COLORS: Record<string, { activeBg: string; activeText: string; text: string }> = {
+  default: { activeBg: 'var(--background)', activeText: 'var(--foreground)',         text: 'var(--muted-foreground)' },
+  filled:  { activeBg: 'var(--primary)',    activeText: 'var(--primary-foreground)', text: 'var(--muted-foreground)' },
+  minimal: { activeBg: 'transparent',       activeText: 'var(--primary)',            text: 'var(--muted-foreground)' },
+  rounded: { activeBg: 'var(--primary)',    activeText: 'var(--primary-foreground)', text: 'var(--muted-foreground)' },
+}
+
 // ─── Token/Custom color binding control ───────────────────────────────────────
 // Lets the user choose between a semantic token (var(--primary) etc.) or a raw
 // custom color. Mode is derived from the stored value — no separate state needed.
+// defaultColor = the actual color the component renders when no override is set.
 
 function TokenColorControl({
   label,
   value,
   onChange,
   paletteColors,
+  defaultColor,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   paletteColors: string[]
+  defaultColor?: string
 }) {
   const activeTokenKey = TOKEN_KEYS.find(k => `var(${TOKEN_CSS_VARS[k]})` === value) ?? null
   const isTailwind = activeTokenKey === null && TAILWIND_PALETTE.some(f => f.shades.some(s => s.hex === value))
@@ -777,7 +829,7 @@ function TokenColorControl({
         <TokenColorPicker value={value} onChange={onChange} />
       ) : (
         <div className="flex items-center gap-2">
-          <ColorPicker value={value} onChange={onChange} paletteColors={paletteColors} />
+          <ColorPicker value={value} onChange={onChange} paletteColors={paletteColors} placeholderColor={defaultColor} />
           <span className="text-xs font-mono text-muted-foreground truncate max-w-[80px]">
             {value || <span className="text-muted-foreground/40 not-italic">Default</span>}
           </span>
@@ -1013,24 +1065,29 @@ function ButtonSections({ props, updateProp, paletteColors, primaryColor: _prima
       </InspectorSection>
 
       <InspectorSection title="Colors">
+        {(() => { const vc = BUTTON_VARIANT_COLORS[(props.variant as string) ?? 'default'] ?? BUTTON_VARIANT_COLORS.default; return (<>
         <TokenColorControl
           label="Background"
           value={(props.bgColor as string) ?? ''}
+          defaultColor={vc.bg}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Text"
           value={(props.textColor as string) ?? ''}
+          defaultColor={vc.text}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Border"
           value={(props.borderColor as string) ?? ''}
+          defaultColor={vc.border}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
+        </>) })()}
         <div className="flex items-center justify-between px-4 py-2">
           <span className="text-xs text-muted-foreground">Stroke width</span>
           <div className="flex items-center gap-1.5">
@@ -1184,18 +1241,22 @@ function BadgeSections({ props, updateProp, paletteColors, primaryColor: _primar
       </InspectorSection>
 
       <InspectorSection title="Colors">
+        {(() => { const vc = BADGE_VARIANT_COLORS[(props.variant as string) ?? 'default'] ?? BADGE_VARIANT_COLORS.default; return (<>
         <TokenColorControl
           label="Background"
           value={(props.bgColor as string) ?? ''}
+          defaultColor={vc.bg}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Text"
           value={(props.textColor as string) ?? ''}
+          defaultColor={vc.text}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
+        </>) })()}
         <div className="flex items-center justify-between px-4 py-2">
           <span className="text-xs text-muted-foreground">Stroke width</span>
           <div className="flex items-center gap-1.5">
@@ -1613,30 +1674,36 @@ function AccordionSections({ props, updateProp, paletteColors, globalRadius, onC
       </InspectorSection>
 
       <InspectorSection title="Colors">
+        {(() => { const vc = ACCORDION_VARIANT_COLORS[(props.variant as string) ?? 'default'] ?? ACCORDION_VARIANT_COLORS.default; return (<>
         <TokenColorControl
           label="Background"
           value={(props.bgColor as string) ?? ''}
+          defaultColor={vc.bg}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Trigger text"
           value={(props.triggerColor as string) ?? ''}
+          defaultColor={vc.trigger}
           onChange={(v) => updateProp('triggerColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Content text"
           value={(props.contentColor as string) ?? ''}
+          defaultColor={vc.content}
           onChange={(v) => updateProp('contentColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Border"
           value={(props.borderColor as string) ?? ''}
+          defaultColor={vc.border}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
+        </>) })()}
       </InspectorSection>
 
       <InspectorSection title="Border Radius">
@@ -1670,9 +1737,11 @@ function AlertSections({ props, updateProp, paletteColors, globalRadius, onChang
       </InspectorSection>
 
       <InspectorSection title="Colors">
-        <TokenColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
-        <TokenColorControl label="Text color" value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
-        <TokenColorControl label="Border color" value={(props.borderColor as string) ?? ''} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+        {(() => { const vc = ALERT_VARIANT_COLORS[(props.variant as string) ?? 'default'] ?? ALERT_VARIANT_COLORS.default; return (<>
+        <TokenColorControl label="Background" value={(props.bgColor as string) ?? ''} defaultColor={vc.bg} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Text color" value={(props.textColor as string) ?? ''} defaultColor={vc.text} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Border color" value={(props.borderColor as string) ?? ''} defaultColor={vc.border} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+        </>) })()}
       </InspectorSection>
 
       <InspectorSection title="Icons">
@@ -1907,24 +1976,29 @@ function SpinnerSections({ props, updateProp, paletteColors, globalRadius, onCha
       </InspectorSection>
 
       <InspectorSection title="Colors">
+        {(() => { const vc = SPINNER_VARIANT_COLORS[(props.variant as string) ?? 'border'] ?? SPINNER_VARIANT_COLORS.border; return (<>
         <TokenColorControl
           label="Spinner color"
           value={(props.color as string) ?? ''}
+          defaultColor={vc.spinner}
           onChange={(v) => updateProp('color', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Track color"
           value={(props.trackColor as string) ?? ''}
+          defaultColor={vc.track}
           onChange={(v) => updateProp('trackColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Label color"
           value={(props.labelColor as string) ?? ''}
+          defaultColor={vc.label}
           onChange={(v) => updateProp('labelColor', v)}
           paletteColors={paletteColors}
         />
+        </>) })()}
       </InspectorSection>
     </>
   )
@@ -2516,24 +2590,29 @@ function DropzoneSections({ props, updateProp, paletteColors, globalRadius, onCh
       </InspectorSection>
 
       <InspectorSection title="Colors">
+        {(() => { const vc = DROPZONE_VARIANT_COLORS[(props.variant as string) ?? 'default'] ?? DROPZONE_VARIANT_COLORS.default; return (<>
         <TokenColorControl
           label="Background"
           value={(props.bgColor as string) ?? ''}
+          defaultColor={vc.bg}
           onChange={(v) => updateProp('bgColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Border"
           value={(props.borderColor as string) ?? ''}
+          defaultColor={vc.border}
           onChange={(v) => updateProp('borderColor', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Text"
           value={(props.textColor as string) ?? ''}
+          defaultColor={vc.text}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
+        </>) })()}
       </InspectorSection>
 
       <InspectorSection title="Border Radius">
@@ -2807,24 +2886,29 @@ function PaginationSections({ props, updateProp, paletteColors, globalRadius, on
       </InspectorSection>
 
       <InspectorSection title="Colors">
+        {(() => { const vc = PAGINATION_VARIANT_COLORS[(props.variant as string) ?? 'default'] ?? PAGINATION_VARIANT_COLORS.default; return (<>
         <TokenColorControl
           label="Active background"
           value={(props.activeBg as string) ?? ''}
+          defaultColor={vc.activeBg}
           onChange={(v) => updateProp('activeBg', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Active text"
           value={(props.activeText as string) ?? ''}
+          defaultColor={vc.activeText}
           onChange={(v) => updateProp('activeText', v)}
           paletteColors={paletteColors}
         />
         <TokenColorControl
           label="Text color"
           value={(props.textColor as string) ?? ''}
+          defaultColor={vc.text}
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
+        </>) })()}
       </InspectorSection>
 
       <InspectorSection title="Border Radius">
@@ -2871,8 +2955,8 @@ function ProgressSections({ props, updateProp, paletteColors, primaryColor: _pri
         </div>
       </InspectorSection>
       <InspectorSection title="Colors">
-        <TokenColorControl label="Track color" value={(props.trackColor as string) ?? ''} onChange={(v) => updateProp('trackColor', v)} paletteColors={paletteColors} />
-        <TokenColorControl label="Indicator color" value={(props.indicatorColor as string) ?? ''} onChange={(v) => updateProp('indicatorColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Track color" value={(props.trackColor as string) ?? ''} defaultColor="var(--secondary)" onChange={(v) => updateProp('trackColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Indicator color" value={(props.indicatorColor as string) ?? ''} defaultColor="var(--primary)" onChange={(v) => updateProp('indicatorColor', v)} paletteColors={paletteColors} />
       </InspectorSection>
       <InspectorSection title="Border Radius">
         <RadiusControl label="Progress radius" value={props.borderRadius as number | undefined} globalValue={globalRadius} onChange={(v) => updateProp('borderRadius', v)} />
@@ -3775,11 +3859,9 @@ function ComponentPreview({
         <p className="text-xs text-center leading-tight" style={{ color: vs.subtext, opacity: 0.8 }}>
           {(props.description as string) ?? 'or click to browse'}
         </p>
-        {((props.acceptedTypes as string) || (props.maxSize as string)) && (
-          <p className="text-[11px] text-center mt-1" style={{ color: vs.subtext, opacity: 0.6 }}>
-            {[props.acceptedTypes as string, props.maxSize ? `Max ${props.maxSize as string}` : ''].filter(Boolean).join(' · ')}
-          </p>
-        )}
+        <p className="text-[11px] text-center mt-1" style={{ color: vs.subtext, opacity: 0.6 }}>
+          {[(props.acceptedTypes as string) ?? 'PNG, JPG, PDF', `Max ${(props.maxSize as string) ?? '10MB'}`].join(' · ')}
+        </p>
       </div>
     )
   }
@@ -5557,7 +5639,7 @@ function ExportSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[480px] sm:max-w-[480px] flex flex-col p-0">
+      <SheetContent side="right" className="w-[480px] sm:max-w-[480px] flex flex-col p-0 overflow-hidden">
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
           <SheetTitle>Export {component}</SheetTitle>
           <SheetDescription>
@@ -5565,7 +5647,7 @@ function ExportSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6 py-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
           <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
             Component code
           </p>
@@ -5609,7 +5691,7 @@ function ExportSheet({
               ))}
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <SheetFooter className="px-6 py-4 border-t border-border shrink-0">
           <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
