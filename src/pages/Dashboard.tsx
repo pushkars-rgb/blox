@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useClerk, useUser } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertDialog,
@@ -35,6 +36,17 @@ import { Check, LayoutGrid, MoreVertical, Plus, Settings, Share2, Trash2 } from 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
 function Sidebar() {
+  const { signOut } = useClerk()
+  const { user } = useUser()
+
+  const name = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'You'
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
   return (
     <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-sidebar">
       {/* Wordmark */}
@@ -53,10 +65,10 @@ function Sidebar() {
       {/* User row */}
       <div className="flex items-center gap-2 border-t border-border px-3 py-3">
         <Avatar className="h-7 w-7">
-          <AvatarFallback className="text-xs">AC</AvatarFallback>
+          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
         </Avatar>
         <span className="flex-1 truncate text-xs font-medium text-sidebar-foreground">
-          Alex Chen
+          {name}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -65,10 +77,9 @@ function Sidebar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="w-44">
-            <DropdownMenuItem>Account settings</DropdownMenuItem>
             <DropdownMenuItem>Preferences</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut()}>Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
