@@ -111,7 +111,7 @@ import {
 import { cn } from '@/lib/utils'
 import ColorPicker from '@/components/ColorPicker'
 import { type Project } from '@/data/projects'
-import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Loader2, Minus, Plus, RotateCcw } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Link, Link2Off, Loader2, Minus, Plus, RotateCcw } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -129,7 +129,7 @@ type InspectorSharedProps = {
   onChangeGlobalRadius: (v: number) => void
 }
 
-const defaultPadding: PaddingValue = { top: 8, right: 16, bottom: 8, left: 16 }
+const defaultPadding: PaddingValue = { top: 0, right: 10, bottom: 0, left: 10 }
 
 type LucideIconComp = React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>
 
@@ -926,10 +926,14 @@ function PaddingControl({
     }
   }
 
+  const boxCls = cn(
+    'flex items-center h-7 bg-muted border border-border rounded-md overflow-hidden',
+    'focus-within:border-ring',
+  )
+  const labelCls = 'text-[10px] font-medium text-muted-foreground/60 pl-2 pr-1 select-none shrink-0'
   const inputCls = cn(
-    'w-12 h-7 text-xs font-mono text-center',
-    'bg-muted border border-border rounded-md',
-    'outline-none focus:border-ring',
+    'flex-1 h-full text-xs font-mono text-right bg-transparent pr-2',
+    'outline-none',
     '[appearance:textfield]',
     '[&::-webkit-outer-spin-button]:appearance-none',
     '[&::-webkit-inner-spin-button]:appearance-none',
@@ -937,37 +941,38 @@ function PaddingControl({
 
   return (
     <div className="px-4 pt-2 pb-3">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2.5">
         <span className="text-xs text-muted-foreground">{label}</span>
         <button
           onClick={() => setLinked(!linked)}
           className={cn(
-            'text-xs px-2 py-0.5 rounded cursor-pointer transition-colors',
+            'w-6 h-6 flex items-center justify-center rounded cursor-pointer transition-colors',
             linked ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-muted/70',
           )}
+          title={linked ? 'Unlink sides' : 'Link all sides'}
         >
-          {linked ? 'Linked' : 'Individual'}
+          {linked
+            ? <Link size={11} strokeWidth={2} />
+            : <Link2Off size={11} strokeWidth={2} />
+          }
         </button>
       </div>
-      <div className="flex flex-col items-center gap-1.5">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] text-muted-foreground/60 w-3 text-center">T</span>
-          <input type="number" min={0} max={64} value={value.top} onChange={(e) => update('top', e.target.value)} className={inputCls} />
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className={boxCls}>
+          <span className={labelCls}>T</span>
+          <input type="number" min={0} max={999} value={value.top} onChange={(e) => update('top', e.target.value)} className={inputCls} />
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-muted-foreground/60 w-3 text-center">L</span>
-            <input type="number" min={0} max={64} value={value.left} onChange={(e) => update('left', e.target.value)} className={inputCls} />
-          </div>
-          <div className="w-10 h-7 border-2 border-dashed border-border/50 rounded-md" />
-          <div className="flex items-center gap-1">
-            <input type="number" min={0} max={64} value={value.right} onChange={(e) => update('right', e.target.value)} className={inputCls} />
-            <span className="text-[10px] text-muted-foreground/60 w-3 text-center">R</span>
-          </div>
+        <div className={boxCls}>
+          <span className={labelCls}>R</span>
+          <input type="number" min={0} max={999} value={value.right} onChange={(e) => update('right', e.target.value)} className={inputCls} />
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] text-muted-foreground/60 w-3 text-center">B</span>
-          <input type="number" min={0} max={64} value={value.bottom} onChange={(e) => update('bottom', e.target.value)} className={inputCls} />
+        <div className={boxCls}>
+          <span className={labelCls}>B</span>
+          <input type="number" min={0} max={999} value={value.bottom} onChange={(e) => update('bottom', e.target.value)} className={inputCls} />
+        </div>
+        <div className={boxCls}>
+          <span className={labelCls}>L</span>
+          <input type="number" min={0} max={999} value={value.left} onChange={(e) => update('left', e.target.value)} className={inputCls} />
         </div>
       </div>
     </div>
@@ -1372,7 +1377,7 @@ function InputSections({ props, updateProp, paletteColors, primaryColor: _primar
 
       <InspectorSection title="Spacing">
         <PaddingControl
-          value={(props.padding as PaddingValue) ?? { top: 4, right: 12, bottom: 4, left: 12 }}
+          value={(props.padding as PaddingValue) ?? { top: 4, right: 10, bottom: 4, left: 10 }}
           onChange={(v) => updateProp('padding', v)}
         />
       </InspectorSection>
@@ -1590,7 +1595,7 @@ function CardSections({ props, updateProp, paletteColors, primaryColor: _primary
 
       <InspectorSection title="Spacing">
         <PaddingControl
-          value={(props.padding as PaddingValue) ?? { top: 24, right: 24, bottom: 24, left: 24 }}
+          value={(props.padding as PaddingValue) ?? { top: 16, right: 0, bottom: 16, left: 0 }}
           onChange={(v) => updateProp('padding', v)}
         />
       </InspectorSection>
@@ -2316,7 +2321,7 @@ function TextareaSections({ props, updateProp, paletteColors, globalRadius, onCh
       </InspectorSection>
       <InspectorSection title="Spacing">
         <PaddingControl
-          value={(props.padding as PaddingValue) ?? { top: 8, right: 12, bottom: 8, left: 12 }}
+          value={(props.padding as PaddingValue) ?? { top: 8, right: 10, bottom: 8, left: 10 }}
           onChange={(v) => updateProp('padding', v)}
         />
       </InspectorSection>
