@@ -5,7 +5,8 @@ export default function AccessDenied({ email }: { email: string | null }) {
 
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center gap-8 bg-background px-4">
-      <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-6" />
+      <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-6 dark:hidden" />
+      <img src="/Blox-Full-Logo-Dark-Mode.svg" alt="Blox" className="h-6 hidden dark:block" />
 
       <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-xl border border-border bg-card p-8 text-center shadow-sm">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">

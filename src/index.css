@@ -199,6 +199,10 @@
   background-image: radial-gradient(circle, #d4d4d4 1px, transparent 1px);
   background-size: 24px 24px;
 }
+.dark .canvas-grid {
+  background-color: oklch(0.18 0 0);
+  background-image: radial-gradient(circle, oklch(0.28 0 0) 1px, transparent 1px);
+}
 
 @layer base {
   * {

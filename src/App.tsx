@@ -1,6 +1,7 @@
 import { useUser } from '@clerk/clerk-react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { isAllowedEmail } from './lib/allowlist'
+import { ThemeProvider } from './components/ThemeProvider'
 import Dashboard from './pages/Dashboard'
 import Editor from './pages/Editor'
 import AuthScreen from './pages/AuthScreen'
@@ -35,13 +36,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthGate>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/editor/:projectId" element={<Editor />} />
-        </Routes>
-      </AuthGate>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthGate>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/editor/:projectId" element={<Editor />} />
+          </Routes>
+        </AuthGate>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }

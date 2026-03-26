@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useProjectTokens, hexToOklch } from '@/hooks/useProjectTokens'
+import { useTheme } from '@/hooks/useTheme'
 import {
   type SemanticTokenKey,
   type SemanticTokens,
@@ -111,7 +112,7 @@ import {
 import { cn } from '@/lib/utils'
 import ColorPicker from '@/components/ColorPicker'
 import { type Project } from '@/data/projects'
-import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Link, Link2Off, Loader2, Minus, Plus, RotateCcw } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Link, Link2Off, Loader2, Minus, Moon, Plus, RotateCcw, Sun } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -5779,6 +5780,7 @@ export default function Editor() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [activeThemeId, setActiveThemeId] = useState(projectId ?? '')
   const [activeDots, setActiveDots] = useState(paletteColors)
+  const { isDark, toggleTheme } = useTheme()
 
   // ─── Reset all project customizations to the neutral default shadcn baseline ──
   // Single canonical source of truth: TOKEN_PRESETS[0] ('Default' neutral preset)
@@ -5931,7 +5933,8 @@ export default function Editor() {
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
           <div className="flex items-center gap-1.5 h-full min-w-0">
             <button onClick={() => navigate('/')} className="shrink-0 flex items-center mr-2">
-              <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-4" />
+              <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-4 dark:hidden" />
+              <img src="/Blox-Full-Logo-Dark-Mode.svg" alt="Blox" className="h-4 hidden dark:block" />
             </button>
             <span className="text-muted-foreground/30 text-sm shrink-0">/</span>
             <button
@@ -6044,6 +6047,19 @@ export default function Editor() {
                 </Tooltip>
               )
             })()}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleTheme}
+                  className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  {isDark ? <Sun size={14} strokeWidth={1.75} /> : <Moon size={14} strokeWidth={1.75} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isDark ? 'Light mode' : 'Dark mode'}</p>
+              </TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

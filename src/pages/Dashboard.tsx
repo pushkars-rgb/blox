@@ -31,13 +31,15 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { type Project } from '@/data/projects'
 import useProjects from '@/hooks/useProjects'
-import { Check, LayoutGrid, MoreVertical, Plus, Settings, Share2, Trash2 } from 'lucide-react'
+import { Check, LayoutGrid, Moon, MoreVertical, Plus, Settings, Share2, Sun, Trash2 } from 'lucide-react'
+import { useTheme } from '@/hooks/useTheme'
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
 function Sidebar() {
   const { signOut } = useClerk()
   const { user } = useUser()
+  const { isDark, toggleTheme } = useTheme()
 
   const name = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'You'
   const initials = name
@@ -51,7 +53,8 @@ function Sidebar() {
     <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-sidebar">
       {/* Wordmark */}
       <div className="flex items-center px-4 py-4">
-        <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-5" />
+        <img src="/Blox-Full-Logo.svg" alt="Blox" className="h-5 dark:hidden" />
+        <img src="/Blox-Full-Logo-Dark-Mode.svg" alt="Blox" className="h-5 hidden dark:block" />
       </div>
 
       {/* Nav */}
@@ -70,6 +73,13 @@ function Sidebar() {
         <span className="flex-1 truncate text-xs font-medium text-sidebar-foreground">
           {name}
         </span>
+        <button
+          onClick={toggleTheme}
+          className="text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors"
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? <Sun size={14} strokeWidth={1.75} /> : <Moon size={14} strokeWidth={1.75} />}
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">

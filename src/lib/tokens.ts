@@ -85,20 +85,48 @@ export const TOKEN_GROUPS: TokenGroup[] = [
   { label: 'Destructive', keys: ['destructive', 'destructiveForeground'] },
 ]
 
+// ─── Dark mode overrides (mirrors .dark {} in index.css) ─────────────────────
+// These are injected as :root.dark {} (specificity 0-2-0), which always beats
+// the :root {} project tokens (specificity 0-1-0) when dark mode is active.
+
+export const DARK_CSS_VARS: Record<string, string> = {
+  '--background':           'oklch(0.145 0 0)',
+  '--foreground':           'oklch(0.985 0 0)',
+  '--card':                 'oklch(0.205 0 0)',
+  '--card-foreground':      'oklch(0.985 0 0)',
+  '--popover':              'oklch(0.205 0 0)',
+  '--popover-foreground':   'oklch(0.985 0 0)',
+  '--primary':              'oklch(0.922 0 0)',
+  '--primary-foreground':   'oklch(0.205 0 0)',
+  '--secondary':            'oklch(0.269 0 0)',
+  '--secondary-foreground': 'oklch(0.985 0 0)',
+  '--muted':                'oklch(0.269 0 0)',
+  '--muted-foreground':     'oklch(0.708 0 0)',
+  '--accent':               'oklch(0.269 0 0)',
+  '--accent-foreground':    'oklch(0.985 0 0)',
+  '--destructive':          'oklch(0.704 0.191 22.216)',
+  '--border':               'oklch(1 0 0 / 10%)',
+  '--input':                'oklch(1 0 0 / 15%)',
+  '--ring':                 'oklch(0.556 0 0)',
+}
+
 // ─── Injection ───────────────────────────────────────────────────────────────
+// Uses a <style> tag (specificity :root = 0-1-0) instead of inline styles so
+// that :root.dark {} in ThemeProvider (specificity 0-2-0) can override it.
 
 export function injectSemanticTokens(tokens: SemanticTokens): void {
-  const root = document.documentElement
-  for (const key of TOKEN_KEYS) {
-    root.style.setProperty(TOKEN_CSS_VARS[key], tokens[key])
+  let el = document.getElementById('blox-tokens') as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = 'blox-tokens'
+    document.head.appendChild(el)
   }
+  const lines = TOKEN_KEYS.map(key => `  ${TOKEN_CSS_VARS[key]}: ${tokens[key]};`)
+  el.textContent = `:root {\n${lines.join('\n')}\n}`
 }
 
 export function clearSemanticTokens(): void {
-  const root = document.documentElement
-  for (const key of TOKEN_KEYS) {
-    root.style.removeProperty(TOKEN_CSS_VARS[key])
-  }
+  document.getElementById('blox-tokens')?.remove()
 }
 
 // ─── Hex → OKLCH conversion ──────────────────────────────────────────────────
