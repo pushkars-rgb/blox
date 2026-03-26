@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useProjectTokens, hexToOklch } from '@/hooks/useProjectTokens'
 import { useTheme } from '@/hooks/useTheme'
@@ -53,6 +53,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { Kbd } from '@/components/ui/kbd'
 import { Label } from '@/components/ui/label'
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -117,9 +118,21 @@ import { Check, ChevronDown, ChevronLeft, Download, LayoutGrid, Link, Link2Off, 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type PaddingValue = { top: number; right: number; bottom: number; left: number }
-type ComponentPropsValue = string | boolean | number | PaddingValue | undefined
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ComponentPropsValue = string | boolean | number | PaddingValue | Record<string, any> | undefined
 type ComponentProps = Record<string, ComponentPropsValue>
 type UpdateProp = (key: string, value: ComponentPropsValue) => void
+
+// Color-override props that are scoped per variant so that customizations made
+// for one variant (e.g. 'destructive') don't bleed into another (e.g. 'default').
+const VARIANT_SCOPED_PROPS = new Set([
+  'bgColor', 'textColor', 'borderColor',
+  'triggerColor', 'contentColor',
+  'trackColor', 'labelColor',
+  'activeBgColor', 'activeTextColor',
+  'fillColor',
+  'activeColor', 'inactiveColor',
+])
 
 type InspectorSharedProps = {
   props: ComponentProps
@@ -193,8 +206,8 @@ function IconError({ size = 22, className }: { size?: number; className?: string
 const COMPONENTS = [
   'Accordion', 'Alert', 'Avatar', 'Badge', 'Bar Chart', 'Breadcrumb', 'Button', 'Button Group',
   'Calendar', 'Card', 'Checkbox',
-  'Dialog', 'Dropdown Menu', 'Dropzone', 'Input', 'Input OTP', 'Label', 'Line Chart', 'Popover', 'Progress',
-  'Pagination', 'Radio Group', 'Select', 'Separator', 'Sheet', 'Sidebar', 'Skeleton', 'Slider',
+  'Dialog', 'Dropdown Menu', 'Dropzone', 'Input', 'Input OTP', 'Kbd', 'Label', 'Line Chart', 'Popover', 'Progress',
+  'Pagination', 'Radio Group', 'Rating', 'Select', 'Separator', 'Sheet', 'Sidebar', 'Skeleton', 'Slider',
   'Spinner', 'Switch', 'Table', 'Tabs', 'Textarea', 'Toast', 'Toggle', 'Tooltip',
 ]
 
@@ -211,10 +224,12 @@ const COMPONENT_VARIANTS: Record<string, { prop: string; values: (string | boole
   Breadcrumb:     { prop: 'separatorStyle', values: ['slash', 'chevron', 'dot'] },
   Dropzone:       { prop: 'variant',        values: ['default', 'active', 'success', 'error'] },
   'Input OTP':    { prop: 'slotStyle',      values: ['bordered', 'filled', 'underline'] },
+  Kbd:            { prop: 'variant',        values: ['default', 'outline', 'ghost', 'solid'] },
   Button:         { prop: 'variant',        values: ['default', 'secondary', 'outline', 'ghost', 'link', 'destructive'] },
   Pagination:     { prop: 'variant',        values: ['default', 'filled', 'minimal', 'rounded'] },
   Progress:       { prop: 'size',           values: ['sm', 'default', 'lg'] },
   'Radio Group':  { prop: 'orientation',    values: ['vertical', 'horizontal'] },
+  Rating:         { prop: 'variant',        values: ['stars', 'emoji', 'thumbs'] },
   Select:         { prop: 'size',           values: ['sm', 'default', 'lg'] },
   Separator:      { prop: 'orientation',    values: ['horizontal', 'vertical'] },
   Skeleton:       { prop: 'preset',         values: ['text-lines', 'card', 'avatar-row', 'form'] },
@@ -248,6 +263,14 @@ const COMPONENT_STATES: Record<string, StateEntry[]> = {
     { label: 'Success',     propsOverride: { variant: 'success' } },
     { label: 'Warning',     propsOverride: { variant: 'warning' } },
     { label: 'Info',        propsOverride: { variant: 'info' } },
+  ],
+  Kbd: [
+    { label: 'Default',  propsOverride: { variant: 'default',  pressed: false, disabled: false } },
+    { label: 'Pressed',  propsOverride: { variant: 'default',  pressed: true  } },
+    { label: 'Disabled', propsOverride: { variant: 'default',  disabled: true } },
+    { label: 'Outline',  propsOverride: { variant: 'outline',  pressed: false } },
+    { label: 'Ghost',    propsOverride: { variant: 'ghost',    pressed: false } },
+    { label: 'Solid',    propsOverride: { variant: 'solid',    pressed: false } },
   ],
   Toggle: [
     { label: 'Off',          propsOverride: { pressed: false, variant: 'default' } },
@@ -435,6 +458,27 @@ function generateTSX(
       usage: `<InputOTP maxLength={${length}}>...</InputOTP>`,
     }
   }
+  if (component === 'Kbd') {
+    const variant = (props.variant as string) ?? 'default'
+    const kbdSize = (props.size as string) ?? 'default'
+    const key1 = (props.key1 as string) ?? '⌘'
+    const key2 = (props.key2 as string) ?? 'K'
+    const key3 = (props.key3 as string) ?? ''
+    const keys = [key1, key2, key3].filter(Boolean)
+    const parts: string[] = []
+    if (variant !== 'default') parts.push(`variant="${variant}"`)
+    if (kbdSize !== 'default') parts.push(`size="${kbdSize}"`)
+    const p = parts.length ? ' ' + parts.join(' ') : ''
+    const inner = keys.length > 1
+      ? `<div className="flex items-center gap-1.5">\n      ${keys.map((k, i) => `${i > 0 ? '<span className="text-xs text-muted-foreground">+</span>\n      ' : ''}<Kbd${p}>${k}</Kbd>`).join('\n      ')}\n    </div>`
+      : `<Kbd${p}>${key1}</Kbd>`
+    return {
+      full: `import { Kbd } from "@/components/ui/kbd"\n\nexport function MyKbd() {\n  return (\n    ${inner}\n  )\n}`,
+      usage: keys.length > 1
+        ? `<Kbd${p}>${key1}</Kbd> <span>+</span> <Kbd${p}>${key2}</Kbd>`
+        : `<Kbd${p}>${key1}</Kbd>`,
+    }
+  }
   if (component === 'Pagination') {
     const totalPages = (props.totalPages as number) ?? 5
     const activePage = (props.activePage as number) ?? 3
@@ -475,6 +519,37 @@ function generateTSX(
     return {
       full: `import { Progress } from "@/components/ui/progress"\n\nexport function MyProgress() {\n  return (\n    <Progress value={${value}} className="w-[280px]" />\n  )\n}`,
       usage: `<Progress value={${value}} className="w-[280px]" />`,
+    }
+  }
+  if (component === 'Rating') {
+    const variant = (props.variant as string) ?? 'stars'
+    if (variant === 'stars') {
+      const iconType = (props.iconType as string) ?? 'star'
+      const starCount = (props.starCount as number) ?? 5
+      const activeCount = (props.activeCount as number) ?? 3
+      const activeColor = (props.activeColor as string) || '#2563EB'
+      return {
+        full: `// Custom Rating component\nfunction StarRating({ count = ${starCount}, value = ${activeCount}, color = "${activeColor}" }) {\n  return (\n    <div className="flex items-center gap-1">\n      {Array.from({ length: count }, (_, i) => (\n        <svg key={i} width="22" height="22" viewBox="0 0 24 24"\n          fill={i < value ? color : "none"}\n          stroke={i < value ? color : "currentColor"}\n          strokeWidth="1.5" className="text-muted-foreground cursor-pointer">\n          ${iconType === 'heart' ? '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />' : '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />'}\n        </svg>\n      ))}\n    </div>\n  )\n}`,
+        usage: `<StarRating count={${starCount}} value={${activeCount}} color="${activeColor}" />`,
+      }
+    }
+    if (variant === 'emoji') {
+      const question = (props.question as string) ?? 'Did this answer your question?'
+      const e1 = (props.emoji1 as string) ?? '😞'
+      const e2 = (props.emoji2 as string) ?? '😐'
+      const e3 = (props.emoji3 as string) ?? '🤩'
+      return {
+        full: `// Custom Emoji Rating\nexport function EmojiRating() {\n  return (\n    <div className="flex flex-col items-center gap-4">\n      <p className="text-sm font-medium">${question}</p>\n      <div className="flex items-center gap-3">\n        {["${e1}", "${e2}", "${e3}"].map((e, i) => (\n          <button key={i} className="text-3xl w-12 h-12 flex items-center justify-center rounded-full hover:bg-muted transition-colors">{e}</button>\n        ))}\n      </div>\n    </div>\n  )\n}`,
+        usage: `<EmojiRating />`,
+      }
+    }
+    // thumbs
+    const question = (props.question as string) ?? 'Was this page helpful?'
+    const yesLabel = (props.yesLabel as string) ?? 'Yes'
+    const noLabel = (props.noLabel as string) ?? 'No'
+    return {
+      full: `// Custom Thumbs Rating\nexport function ThumbsRating() {\n  return (\n    <div className="flex items-center gap-4 flex-wrap">\n      <p className="text-sm font-medium">${question}</p>\n      <div className="flex items-center gap-2">\n        <Button variant="outline" size="sm"><ThumbsUp size={14} className="mr-1.5" />${yesLabel}</Button>\n        <Button variant="outline" size="sm"><ThumbsDown size={14} className="mr-1.5" />${noLabel}</Button>\n      </div>\n    </div>\n  )\n}`,
+      usage: `<ThumbsRating />`,
     }
   }
   const kebab = component.toLowerCase().replace(/\s+/g, '-')
@@ -1513,6 +1588,114 @@ function InputOTPSections({ props, updateProp, paletteColors, globalRadius, onCh
   )
 }
 
+const KBD_VARIANT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  default: { bg: 'var(--muted)',       text: 'var(--muted-foreground)', border: 'var(--border)' },
+  outline: { bg: 'var(--background)',  text: 'var(--foreground)',       border: 'var(--border)' },
+  ghost:   { bg: 'transparent',        text: 'var(--muted-foreground)', border: 'transparent'   },
+  solid:   { bg: 'var(--foreground)',  text: 'var(--background)',       border: 'transparent'   },
+}
+
+function KbdSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const variant = (props.variant as string) ?? 'default'
+  const kbdSize = (props.size as string) ?? 'default'
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+      <InspectorSection title="Variant">
+        <div className="flex flex-wrap gap-1.5 px-4 pt-2 pb-2">
+          {['default', 'outline', 'ghost', 'solid'].map((v) => (
+            <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+          ))}
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Size">
+        <div className="flex gap-1.5 px-4 pt-2 pb-2">
+          {['sm', 'default', 'lg'].map((s) => (
+            <PillButton key={s} label={s} active={kbdSize === s} onClick={() => updateProp('size', s)} />
+          ))}
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Content">
+        <div className="px-4 pt-2 pb-3 flex flex-col gap-2">
+          {(['key1', 'key2', 'key3'] as const).map((k, i) => {
+            const defaults = ['⌘', 'K', '']
+            return (
+              <div key={k}>
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  Key {i + 1}{i > 0 && <span className="text-muted-foreground/50"> (optional)</span>}
+                </p>
+                <Input
+                  value={(props[k] as string) ?? defaults[i]}
+                  onChange={(e) => updateProp(k, e.target.value)}
+                  className="h-7 text-xs rounded-md font-mono"
+                  placeholder={i === 2 ? 'leave empty to hide' : defaults[i]}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </InspectorSection>
+      <InspectorSection title="States">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Pressed</span>
+          <Switch
+            checked={(props.pressed as boolean) ?? false}
+            onCheckedChange={(v) => updateProp('pressed', v)}
+          />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Disabled</span>
+          <Switch
+            checked={(props.disabled as boolean) ?? false}
+            onCheckedChange={(v) => updateProp('disabled', v)}
+          />
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Colors">
+        {(() => {
+          const vc = KBD_VARIANT_COLORS[variant] ?? KBD_VARIANT_COLORS.default
+          return (
+            <>
+              <TokenColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} defaultColor={vc.bg} />
+              <TokenColorControl label="Text"       value={(props.textColor as string) ?? ''} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} defaultColor={vc.text} />
+              <TokenColorControl label="Border"     value={(props.borderColor as string) ?? ''} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} defaultColor={vc.border} />
+            </>
+          )
+        })()}
+      </InspectorSection>
+      <InspectorSection title="Typography">
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Font size</span>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number" min={8} max={24}
+              value={(props.fontSize as number) ?? 12}
+              onChange={(e) => updateProp('fontSize', parseInt(e.target.value))}
+              className="w-16 h-7 text-xs font-mono bg-muted border border-border rounded-md px-2 outline-none focus:border-ring text-right"
+            />
+            <span className="text-xs text-muted-foreground">px</span>
+          </div>
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Spacing">
+        <PaddingControl
+          label="Padding"
+          value={(props.padding as PaddingValue) ?? { top: 0, right: 6, bottom: 0, left: 6 }}
+          onChange={(v) => updateProp('padding', v)}
+        />
+      </InspectorSection>
+      <InspectorSection title="Border Radius">
+        <RadiusControl
+          label="Key radius"
+          value={props.borderRadius as number | undefined}
+          globalValue={globalRadius}
+          onChange={(v) => updateProp('borderRadius', v)}
+        />
+      </InspectorSection>
+    </>
+  )
+}
+
 function CardSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const shadow = (props.shadow as string) ?? 'none'
 
@@ -2179,6 +2362,18 @@ function TabsSections({ props, updateProp, paletteColors, primaryColor: _primary
           value={(props.activeColor as string) ?? ''}
           onChange={(v) => updateProp('activeColor', v)}
           paletteColors={paletteColors}
+        />
+      </InspectorSection>
+      <InspectorSection title="Spacing">
+        <PaddingControl
+          label="Tab padding"
+          value={(props.tabPadding as PaddingValue) ?? { top: 2, right: 6, bottom: 2, left: 6 }}
+          onChange={(v) => updateProp('tabPadding', v)}
+        />
+        <PaddingControl
+          label="Content padding"
+          value={(props.contentPadding as PaddingValue) ?? { top: 8, right: 0, bottom: 0, left: 0 }}
+          onChange={(v) => updateProp('contentPadding', v)}
         />
       </InspectorSection>
       <InspectorSection title="Border Radius">
@@ -3668,6 +3863,370 @@ function LineChartSections({ props, updateProp, paletteColors, primaryColor, glo
   )
 }
 
+// ─── Rating Preview (stateful, interactive) ──────────────────────────────────
+
+function RatingPreview({ props, globalRadius }: { props: ComponentProps; globalRadius: number }) {
+  const ratingVariant = (props.variant as string) ?? 'stars'
+  const radius = props.borderRadius !== undefined ? `${props.borderRadius}px` : `${globalRadius}px`
+
+  // Stars state
+  const [hoverIdx,    setHoverIdx]    = useState(-1)
+  const [selectedIdx, setSelectedIdx] = useState((props.activeCount as number) ?? 3)
+  // Sync initial selectedIdx when prop changes from inspector
+  useEffect(() => { setSelectedIdx((props.activeCount as number) ?? 3) }, [props.activeCount])
+
+  // Emoji state
+  const [selectedEmoji, setSelectedEmoji] = useState(-1)
+
+  // Thumbs state
+  const [selectedThumb, setSelectedThumb] = useState<'yes' | 'no' | null>(null)
+
+  if (ratingVariant === 'stars') {
+    const iconType    = (props.iconType    as string)  ?? 'star'
+    const starCount   = (props.starCount   as number)  ?? 5
+    const szKey       = (props.size        as string)  ?? 'default'
+    const readOnly    = (props.readOnly    as boolean) ?? false
+    const showLabel   = (props.showLabel   as boolean) ?? false
+    const clearable   = (props.clearable   as boolean) ?? true
+    const szMap: Record<string, number>  = { sm: 16, default: 22, lg: 30 }
+    const gapMap: Record<string, number> = { sm: 3, default: 4, lg: 6 }
+    const sz  = szMap[szKey]  ?? 22
+    const gap = gapMap[szKey] ?? 4
+    const activeColor   = (props.activeColor   as string) || '#2563EB'
+    const inactiveColor = (props.inactiveColor as string) || 'var(--muted-foreground)'
+
+    const displayIdx = !readOnly && hoverIdx >= 0 ? hoverIdx + 1 : selectedIdx
+
+    const RatingIcon = ({ idx }: { idx: number }) => {
+      const filled  = idx < displayIdx
+      const color   = filled ? activeColor : inactiveColor
+      const sw      = !readOnly && hoverIdx === idx ? '2.25' : '1.75'
+      const scale   = !readOnly && hoverIdx === idx ? 1.12 : 1
+      const common  = { width: sz, height: sz, viewBox: '0 0 24 24', fill: filled ? color : 'none', stroke: color, strokeWidth: sw, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, style: { cursor: readOnly ? 'default' : 'pointer', transform: `scale(${scale})`, transition: 'transform 0.1s, fill 0.1s' } }
+      return iconType === 'heart' ? (
+        <svg {...common}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+      ) : (
+        <svg {...common}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+      )
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-2" style={{ opacity: readOnly ? 0.65 : 1 }}>
+        <div
+          className="flex items-center"
+          style={{ gap: `${gap}px` }}
+          onMouseLeave={() => !readOnly && setHoverIdx(-1)}
+        >
+          {Array.from({ length: starCount }, (_, i) => (
+            <span
+              key={i}
+              onMouseEnter={() => !readOnly && setHoverIdx(i)}
+              onClick={() => {
+                if (readOnly) return
+                setSelectedIdx(clearable && selectedIdx === i + 1 ? 0 : i + 1)
+                setHoverIdx(-1)
+              }}
+            >
+              <RatingIcon idx={i} />
+            </span>
+          ))}
+        </div>
+        {showLabel && (
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {selectedIdx > 0 ? `${selectedIdx} / ${starCount}` : `0 / ${starCount}`}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (ratingVariant === 'emoji') {
+    const question    = (props.question    as string)  ?? 'Did this answer your question?'
+    const showLabels  = (props.showLabels  as boolean) ?? false
+    const emojis = [
+      (props.emoji1 as string) ?? '😞',
+      (props.emoji2 as string) ?? '😐',
+      (props.emoji3 as string) ?? '🤩',
+    ]
+    const labels = [
+      (props.label1 as string) ?? 'No',
+      (props.label2 as string) ?? 'Maybe',
+      (props.label3 as string) ?? 'Yes!',
+    ]
+    const szKey        = (props.emojiSize as string) ?? 'default'
+    const szMap: Record<string, string>    = { sm: '1.5rem', default: '2rem', lg: '2.75rem' }
+    const btnSzMap: Record<string, string> = { sm: '2.5rem',  default: '3.25rem', lg: '4rem' }
+    const fontSize = szMap[szKey]    ?? '2rem'
+    const btnSize  = btnSzMap[szKey] ?? '3.25rem'
+    return (
+      <div className="flex flex-col items-center gap-4">
+        <p className="text-sm font-medium text-foreground text-center">{question}</p>
+        <div className="flex items-end gap-3">
+          {emojis.map((e, i) => (
+            <div key={i} className="flex flex-col items-center gap-1.5">
+              <button
+                onClick={() => setSelectedEmoji(selectedEmoji === i ? -1 : i)}
+                className="flex items-center justify-center rounded-full transition-all duration-150 cursor-pointer select-none"
+                style={{
+                  fontSize, width: btnSize, height: btnSize,
+                  backgroundColor: selectedEmoji === i ? 'var(--muted)' : 'transparent',
+                  outline: selectedEmoji === i ? '2px solid var(--primary)' : '2px solid transparent',
+                  outlineOffset: '2px',
+                  transform: selectedEmoji === i ? 'scale(1.18)' : 'scale(1)',
+                }}
+              >
+                {e}
+              </button>
+              {showLabels && (
+                <span className={cn('text-[10px] transition-colors', selectedEmoji === i ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+                  {labels[i]}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {selectedEmoji >= 0 && (
+          <p className="text-xs text-muted-foreground">
+            {((props.feedbackPrefix as string) ?? 'You selected:')} {emojis[selectedEmoji]}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (ratingVariant === 'thumbs') {
+    const question    = (props.question    as string) ?? 'Was this page helpful?'
+    const yesLabel    = (props.yesLabel    as string) ?? 'Yes'
+    const noLabel     = (props.noLabel     as string) ?? 'No'
+    const buttonStyle = (props.buttonStyle as string) ?? 'outline'
+
+    const ThumbUp = () => (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z" />
+        <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+      </svg>
+    )
+    const ThumbDown = () => (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3z" />
+        <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+      </svg>
+    )
+
+    const getBtnCls = (which: 'yes' | 'no') => cn(
+      'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-all cursor-pointer select-none',
+      buttonStyle === 'ghost'
+        ? cn('rounded-md', selectedThumb === which ? 'bg-foreground text-background' : 'text-foreground hover:bg-muted')
+        : cn('border rounded-md', selectedThumb === which ? 'bg-foreground border-foreground text-background' : 'border-border bg-background text-foreground hover:bg-muted'),
+    )
+
+    return (
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap justify-center">
+          <p className="text-sm font-medium text-foreground">{question}</p>
+          <div className="flex items-center gap-2">
+            <button className={getBtnCls('yes')} style={{ borderRadius: radius }} onClick={() => setSelectedThumb(selectedThumb === 'yes' ? null : 'yes')}>
+              <ThumbUp />{yesLabel}
+            </button>
+            <button className={getBtnCls('no')} style={{ borderRadius: radius }} onClick={() => setSelectedThumb(selectedThumb === 'no' ? null : 'no')}>
+              <ThumbDown />{noLabel}
+            </button>
+          </div>
+        </div>
+        {selectedThumb && (
+          <p className="text-xs text-muted-foreground">
+            {selectedThumb === 'yes'
+              ? ((props.yesFeedback as string) ?? '👍 Thanks for the feedback!')
+              : ((props.noFeedback  as string) ?? "👎 We'll work to improve.")
+            }
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return null
+}
+
+function RatingSections({ props, updateProp, paletteColors, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+  const variant     = (props.variant     as string)  ?? 'stars'
+  const iconType    = (props.iconType    as string)  ?? 'star'
+  const starCount   = (props.starCount   as number)  ?? 5
+  const emojiSize   = (props.emojiSize   as string)  ?? 'default'
+  const buttonStyle = (props.buttonStyle as string)  ?? 'outline'
+
+  return (
+    <>
+      <GlobalSettingsSection globalRadius={globalRadius} onChangeGlobalRadius={onChangeGlobalRadius} />
+
+      <InspectorSection title="Appearance">
+        <div className="px-4 pt-2 pb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Variant</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(['stars', 'emoji', 'thumbs'] as const).map((v) => (
+              <PillButton key={v} label={v} active={variant === v} onClick={() => updateProp('variant', v)} />
+            ))}
+          </div>
+        </div>
+
+        {variant === 'stars' && (<>
+          <div className="px-4 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Icon</p>
+            <div className="flex gap-1.5">
+              {(['star', 'heart'] as const).map((t) => (
+                <PillButton key={t} label={t} active={iconType === t} onClick={() => updateProp('iconType', t)} />
+              ))}
+            </div>
+          </div>
+          <div className="px-4 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+            <div className="flex gap-1.5">
+              {(['sm', 'default', 'lg'] as const).map((s) => (
+                <PillButton key={s} label={s} active={((props.size as string) ?? 'default') === s} onClick={() => updateProp('size', s)} />
+              ))}
+            </div>
+          </div>
+          <div className="px-4 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Total stars</p>
+            <div className="flex gap-1.5">
+              {[3, 4, 5, 6, 7, 10].map((n) => (
+                <PillButton key={n} label={String(n)} active={starCount === n} onClick={() => updateProp('starCount', n)} />
+              ))}
+            </div>
+          </div>
+        </>)}
+
+        {variant === 'emoji' && (
+          <div className="px-4 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Size</p>
+            <div className="flex gap-1.5">
+              {(['sm', 'default', 'lg'] as const).map((s) => (
+                <PillButton key={s} label={s} active={emojiSize === s} onClick={() => updateProp('emojiSize', s)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {variant === 'thumbs' && (
+          <div className="px-4 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Button style</p>
+            <div className="flex gap-1.5">
+              {(['outline', 'ghost'] as const).map((s) => (
+                <PillButton key={s} label={s} active={buttonStyle === s} onClick={() => updateProp('buttonStyle', s)} />
+              ))}
+            </div>
+          </div>
+        )}
+      </InspectorSection>
+
+      {variant === 'stars' && (
+        <InspectorSection title="States">
+          <div className="flex items-center justify-between px-4 pt-2 pb-1">
+            <span className="text-xs text-muted-foreground">Read only</span>
+            <Switch checked={(props.readOnly as boolean) ?? false} onCheckedChange={(v) => updateProp('readOnly', v)} />
+          </div>
+          <div className="flex items-center justify-between px-4 py-1 pb-2">
+            <span className="text-xs text-muted-foreground">Show label</span>
+            <Switch checked={(props.showLabel as boolean) ?? false} onCheckedChange={(v) => updateProp('showLabel', v)} />
+          </div>
+          <div className="flex items-center justify-between px-4 py-1 pb-2">
+            <span className="text-xs text-muted-foreground">Clearable (click to clear)</span>
+            <Switch checked={(props.clearable as boolean) ?? true} onCheckedChange={(v) => updateProp('clearable', v)} />
+          </div>
+        </InspectorSection>
+      )}
+
+      {variant === 'emoji' && (
+        <InspectorSection title="States">
+          <div className="flex items-center justify-between px-4 pt-2 pb-2">
+            <span className="text-xs text-muted-foreground">Show labels</span>
+            <Switch checked={(props.showLabels as boolean) ?? false} onCheckedChange={(v) => updateProp('showLabels', v)} />
+          </div>
+        </InspectorSection>
+      )}
+
+      {(variant === 'emoji' || variant === 'thumbs') && (
+        <InspectorSection title="Content">
+          <div className="px-4 pt-2 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Question text</p>
+            <Input
+              value={(props.question as string) ?? (variant === 'thumbs' ? 'Was this page helpful?' : 'Did this answer your question?')}
+              onChange={(e) => updateProp('question', e.target.value)}
+              className="h-7 text-xs rounded-md"
+            />
+          </div>
+          {variant === 'emoji' && (<>
+            {([['emoji1', '😞', 'label1', 'No'], ['emoji2', '😐', 'label2', 'Maybe'], ['emoji3', '🤩', 'label3', 'Yes!']] as [string, string, string, string][]).map(([eKey, eDef, lKey, lDef]) => (
+              <div key={eKey} className="flex items-center justify-between gap-2 px-4 pb-2">
+                <span className="text-xs text-muted-foreground shrink-0">{eKey.replace('emoji', 'Emoji ')}</span>
+                <div className="flex gap-1.5">
+                  <Input value={(props[eKey] as string) ?? eDef} onChange={(e) => updateProp(eKey, e.target.value)} className="h-7 w-14 text-xs rounded-md text-center" />
+                  {(props.showLabels as boolean) && (
+                    <Input value={(props[lKey] as string) ?? lDef} onChange={(e) => updateProp(lKey, e.target.value)} className="h-7 w-16 text-xs rounded-md" placeholder={lDef} />
+                  )}
+                </div>
+              </div>
+            ))}
+            <div className="px-4 pb-2">
+              <p className="text-xs text-muted-foreground mb-1.5">Feedback prefix</p>
+              <Input
+                value={(props.feedbackPrefix as string) ?? 'You selected:'}
+                onChange={(e) => updateProp('feedbackPrefix', e.target.value)}
+                className="h-7 text-xs rounded-md"
+              />
+            </div>
+          </>)}
+          {variant === 'thumbs' && (<>
+            <div className="flex items-center justify-between px-4 pb-2">
+              <span className="text-xs text-muted-foreground">Yes label</span>
+              <Input value={(props.yesLabel as string) ?? 'Yes'} onChange={(e) => updateProp('yesLabel', e.target.value)} className="h-7 w-24 text-xs rounded-md" />
+            </div>
+            <div className="flex items-center justify-between px-4 pb-2">
+              <span className="text-xs text-muted-foreground">No label</span>
+              <Input value={(props.noLabel as string) ?? 'No'} onChange={(e) => updateProp('noLabel', e.target.value)} className="h-7 w-24 text-xs rounded-md" />
+            </div>
+            <div className="px-4 pb-2">
+              <p className="text-xs text-muted-foreground mb-1.5">Yes feedback</p>
+              <Input
+                value={(props.yesFeedback as string) ?? '👍 Thanks for the feedback!'}
+                onChange={(e) => updateProp('yesFeedback', e.target.value)}
+                className="h-7 text-xs rounded-md"
+              />
+            </div>
+            <div className="px-4 pb-2">
+              <p className="text-xs text-muted-foreground mb-1.5">No feedback</p>
+              <Input
+                value={(props.noFeedback as string) ?? "👎 We'll work to improve."}
+                onChange={(e) => updateProp('noFeedback', e.target.value)}
+                className="h-7 text-xs rounded-md"
+              />
+            </div>
+          </>)}
+        </InspectorSection>
+      )}
+
+      {variant === 'stars' && (
+        <InspectorSection title="Colors">
+          <TokenColorControl
+            label="Active color"
+            value={(props.activeColor as string) ?? ''}
+            defaultColor="#2563EB"
+            onChange={(v) => updateProp('activeColor', v)}
+            paletteColors={paletteColors}
+          />
+          <TokenColorControl
+            label="Inactive color"
+            value={(props.inactiveColor as string) ?? ''}
+            defaultColor="var(--muted-foreground)"
+            onChange={(v) => updateProp('inactiveColor', v)}
+            paletteColors={paletteColors}
+          />
+        </InspectorSection>
+      )}
+    </>
+  )
+}
+
 // ─── Inspector router ─────────────────────────────────────────────────────────
 
 function Inspector({
@@ -3693,11 +4252,13 @@ function Inspector({
   if (component === 'Dropdown Menu') return <DropdownMenuSections {...shared} />
   if (component === 'Dropzone') return <DropzoneSections {...shared} />
   if (component === 'Input OTP') return <InputOTPSections {...shared} />
+  if (component === 'Kbd') return <KbdSections {...shared} />
   if (component === 'Label') return <LabelSections {...shared} />
   if (component === 'Popover') return <PopoverSections {...shared} />
   if (component === 'Pagination') return <PaginationSections {...shared} />
   if (component === 'Progress') return <ProgressSections {...shared} />
   if (component === 'Radio Group') return <RadioGroupSections {...shared} />
+  if (component === 'Rating') return <RatingSections {...shared} />
   if (component === 'Select') return <SelectSections {...shared} />
   if (component === 'Separator') return <SeparatorSections {...shared} />
   if (component === 'Skeleton') return <SkeletonSections {...shared} />
@@ -4321,6 +4882,44 @@ function ComponentPreview({
     )
   }
 
+  if (name === 'Kbd') {
+    const kbdVariant = (props.variant as 'default' | 'outline' | 'ghost' | 'solid') ?? 'default'
+    const kbdSize   = (props.size     as 'sm' | 'default' | 'lg') ?? 'default'
+    const pressed   = (props.pressed  as boolean) ?? false
+    const disabled  = (props.disabled as boolean) ?? false
+    const key1 = (props.key1 as string) ?? '⌘'
+    const key2 = (props.key2 as string) ?? 'K'
+    const key3 = (props.key3 as string) ?? ''
+    const keys = [key1, key2, key3].filter(Boolean)
+    const padding = props.padding as PaddingValue | undefined
+    const kbdStyle: React.CSSProperties = {
+      ...(props.bgColor   ? { backgroundColor: props.bgColor as string } : {}),
+      ...(props.textColor ? { color: props.textColor as string } : {}),
+      ...(props.borderColor ? { borderColor: props.borderColor as string } : {}),
+      borderRadius: radius,
+      ...(props.fontSize ? { fontSize: `${props.fontSize as number}px` } : {}),
+      ...(padding ? { paddingTop: `${padding.top}px`, paddingBottom: `${padding.bottom}px`, paddingLeft: `${padding.left}px`, paddingRight: `${padding.right}px` } : {}),
+      ...(pressed  ? { transform: 'translateY(1px)', boxShadow: 'none' } : {}),
+      opacity: disabled ? 0.5 : 1,
+    }
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
+        {keys.map((key, i) => (
+          <Fragment key={i}>
+            {i > 0 && <span className="text-xs text-muted-foreground select-none">+</span>}
+            <Kbd variant={kbdVariant} size={kbdSize} style={kbdStyle}>
+              {key}
+            </Kbd>
+          </Fragment>
+        ))}
+      </div>
+    )
+  }
+
+  if (name === 'Rating') {
+    return <RatingPreview props={props} globalRadius={globalRadius} />
+  }
+
   if (name === 'Label') {
     const fontWeightMap: Record<string, string> = { normal: '400', medium: '500', semibold: '600', bold: '700' }
     const letterSpacingMap: Record<string, string> = { tight: '-0.025em', normal: '0em', wide: '0.05em' }
@@ -4806,6 +5405,8 @@ function ComponentPreview({
       value: `tab${i}`,
       label: (props[`tab${i}Label`] as string) ?? `Tab ${i + 1}`,
     }))
+    const tabPadding = props.tabPadding as PaddingValue | undefined
+    const contentPadding = props.contentPadding as PaddingValue | undefined
     const listClass = cn(
       tabVariant === 'underline' && '!bg-transparent border-0 border-b border-border rounded-none p-0 h-auto gap-6',
       tabVariant === 'pill' && '!rounded-full',
@@ -4816,18 +5417,30 @@ function ComponentPreview({
       tabVariant === 'pill' && '!rounded-full',
       tabVariant === 'bordered' && 'border border-transparent rounded-t-md data-[state=active]:!bg-background data-[state=active]:border-border',
     )
+    const triggerStyle: React.CSSProperties = tabPadding ? {
+      paddingTop: `${tabPadding.top}px`,
+      paddingBottom: `${tabPadding.bottom}px`,
+      paddingLeft: `${tabPadding.left}px`,
+      paddingRight: `${tabPadding.right}px`,
+    } : {}
+    const contentStyle: React.CSSProperties = contentPadding ? {
+      paddingTop: `${contentPadding.top}px`,
+      paddingBottom: `${contentPadding.bottom}px`,
+      paddingLeft: `${contentPadding.left}px`,
+      paddingRight: `${contentPadding.right}px`,
+    } : {}
     return (
       <div className="flex w-full justify-center">
         <Tabs defaultValue="tab0" className="w-[320px]">
           <TabsList className={listClass}>
             {tabs.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
+              <TabsTrigger key={tab.value} value={tab.value} className={triggerClass} style={triggerStyle}>
                 {tab.label}
               </TabsTrigger>
             ))}
           </TabsList>
           {tabs.map((tab, i) => (
-            <TabsContent key={tab.value} value={tab.value} className="text-sm text-muted-foreground pt-2">
+            <TabsContent key={tab.value} value={tab.value} className="text-sm text-muted-foreground pt-2" style={contentStyle}>
               {(props[`tab${i}Content`] as string) ?? `Content for ${tab.label}.`}
             </TabsContent>
           ))}
@@ -5842,7 +6455,7 @@ export default function Editor() {
     setAllComponentProps(prev => {
       const next = { ...prev }
       Object.keys(next).forEach(comp => {
-        next[comp] = { ...next[comp], bgColor: undefined, textColor: undefined }
+        next[comp] = { ...next[comp], bgColor: undefined, textColor: undefined, _variantProps: undefined }
       })
       return next
     })
@@ -5861,7 +6474,7 @@ export default function Editor() {
     setAllComponentProps(prev => {
       const next = { ...prev }
       Object.keys(next).forEach(comp => {
-        next[comp] = { ...next[comp], bgColor: undefined, textColor: undefined }
+        next[comp] = { ...next[comp], bgColor: undefined, textColor: undefined, _variantProps: undefined }
       })
       return next
     })
@@ -5882,17 +6495,47 @@ export default function Editor() {
     localStorage.setItem(`blox_active_dots_${projectId}`, JSON.stringify(activeDots))
   }, [activeDots, projectId])
 
-  const currentProps = selectedComponent ? (allComponentProps[selectedComponent] ?? {}) : {}
+  const currentProps: ComponentProps = (() => {
+    if (!selectedComponent) return {}
+    const globalProps = allComponentProps[selectedComponent] ?? {}
+    const currentVariant = (globalProps.variant as string) ?? 'default'
+    const variantBucket = (globalProps._variantProps as Record<string, ComponentProps> | undefined)?.[currentVariant] ?? {}
+    // Merge: global props first, then variant-scoped overrides on top
+    return { ...globalProps, ...variantBucket }
+  })()
 
   const updateProp: UpdateProp = (key, value) => {
     if (!selectedComponent) return
-    setAllComponentProps((prev) => ({
-      ...prev,
-      [selectedComponent]: {
-        ...(prev[selectedComponent] ?? {}),
-        [key]: value,
-      },
-    }))
+    if (VARIANT_SCOPED_PROPS.has(key)) {
+      // Write color overrides into a per-variant sub-object so they don't
+      // bleed across variants when the user switches the variant selector.
+      setAllComponentProps((prev) => {
+        const compProps = prev[selectedComponent] ?? {}
+        const currentVariant = (compProps.variant as string) ?? 'default'
+        const existing = (compProps._variantProps as Record<string, ComponentProps> | undefined) ?? {}
+        return {
+          ...prev,
+          [selectedComponent]: {
+            ...compProps,
+            _variantProps: {
+              ...existing,
+              [currentVariant]: {
+                ...(existing[currentVariant] ?? {}),
+                [key]: value,
+              },
+            },
+          },
+        }
+      })
+    } else {
+      setAllComponentProps((prev) => ({
+        ...prev,
+        [selectedComponent]: {
+          ...(prev[selectedComponent] ?? {}),
+          [key]: value,
+        },
+      }))
+    }
   }
 
   // Reset to single preview when switching components
