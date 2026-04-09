@@ -175,6 +175,33 @@ type HealthReport = {
 const CSS_PRIMARY = 'var(--primary)'
 const CSS_PRIMARY_FG = 'var(--primary-foreground)'
 
+/** Returns the right CSS background property: backgroundImage for gradients, backgroundColor for solids */
+function bgStyle(color: string | undefined): React.CSSProperties {
+  if (!color) return {}
+  return color.startsWith('linear-gradient')
+    ? { background: color }
+    : { backgroundColor: color }
+}
+
+/** Depth-aware parser for linear-gradient(Xdeg, from, to) */
+function parseGradient(g: string): { angle: number; from: string; to: string } | null {
+  if (!g?.startsWith('linear-gradient(')) return null
+  const inner = g.slice('linear-gradient('.length, -1)
+  const angleMatch = inner.match(/^(\d+(?:\.\d+)?)deg,\s*/)
+  if (!angleMatch) return null
+  const angle = parseFloat(angleMatch[1])
+  const rest = inner.slice(angleMatch[0].length)
+  let depth = 0
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === '(') depth++
+    else if (rest[i] === ')') depth--
+    else if (rest[i] === ',' && depth === 0) {
+      return { angle, from: rest.slice(0, i).trim(), to: rest.slice(i + 1).trim() }
+    }
+  }
+  return null
+}
+
 // ─── Status icons ─────────────────────────────────────────────────────────────
 
 function IconSuccess({ size = 22, className }: { size?: number; className?: string }) {
@@ -4319,7 +4346,7 @@ function DialogPreview({ props, globalRadius }: { props: ComponentProps; globalR
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           className={cn(sizeClass, isTop && 'top-16 translate-y-0')}
-          style={{ backgroundColor: (props.bgColor as string) || undefined, borderRadius: radius }}
+          style={{ ...bgStyle((props.bgColor as string) || undefined), borderRadius: radius }}
         >
           <DialogHeader style={props.headerBg ? { backgroundColor: props.headerBg as string, margin: '-1.5rem -1.5rem 0', padding: '1.5rem', borderRadius: `${radius} ${radius} 0 0` } : {}}>
             <DialogTitle>{(props.title as string) ?? 'Dialog Title'}</DialogTitle>
@@ -4354,7 +4381,7 @@ function PopoverPreview({ props, globalRadius }: { props: ComponentProps; global
         align={align}
         style={{
           width: `${width}px`,
-          backgroundColor: (props.bgColor as string) || undefined,
+          ...bgStyle((props.bgColor as string) || undefined),
           borderColor: (props.borderColor as string) || undefined,
           borderRadius: radius,
         }}
@@ -4372,6 +4399,133 @@ type ButtonVariant = 'default' | 'destructive' | 'outline' | 'secondary' | 'ghos
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon'
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info'
 type AlertVariant = 'default' | 'destructive'
+
+// ─── Gradient Handle Overlay ──────────────────────────────────────────────────
+
+function GradientHandleOverlay({
+  gradient,
+  onUpdate,
+}: {
+  gradient: string
+  onUpdate: (newGradient: string) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    setSize({ w: el.offsetWidth, h: el.offsetHeight })
+    const obs = new ResizeObserver((entries) => {
+      const r = entries[0].contentRect
+      setSize({ w: r.width, h: r.height })
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  const parsed = parseGradient(gradient)
+  if (!parsed) return null
+  const { angle, from: fromColor, to: toColor } = parsed
+
+  const { w, h } = size
+  const cx = w / 2
+  const cy = h / 2
+  const R = Math.max(28, Math.min(72, Math.min(w, h) * 0.38))
+  const rad = (angle * Math.PI) / 180
+  const toX = cx + R * Math.sin(rad)
+  const toY = cy - R * Math.cos(rad)
+  const fromX = cx - R * Math.sin(rad)
+  const fromY = cy + R * Math.cos(rad)
+
+  function startDrag(which: 'from' | 'to', e: React.PointerEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const el = containerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const ccx = rect.width / 2
+    const ccy = rect.height / 2
+    function onMove(ev: PointerEvent) {
+      const dx = ev.clientX - rect.left - ccx
+      const dy = ev.clientY - rect.top - ccy
+      let newAngle = which === 'to'
+        ? Math.atan2(dx, -dy) * 180 / Math.PI
+        : Math.atan2(-dx, dy) * 180 / Math.PI
+      newAngle = ((Math.round(newAngle) % 360) + 360) % 360
+      onUpdate(`linear-gradient(${newAngle}deg, ${fromColor}, ${toColor})`)
+    }
+    function onUp() {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0"
+      style={{ overflow: 'visible', zIndex: 10 }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {w > 0 && h > 0 && (
+        <>
+          <svg
+            width={w}
+            height={h}
+            className="absolute inset-0"
+            style={{ overflow: 'visible', pointerEvents: 'none' }}
+          >
+            <line x1={fromX} y1={fromY} x2={toX} y2={toY} stroke="rgba(0,0,0,0.35)" strokeWidth={3} strokeLinecap="round" />
+            <line x1={fromX} y1={fromY} x2={toX} y2={toY} stroke="white" strokeWidth={1.5} strokeDasharray="4 3" strokeLinecap="round" opacity={0.85} />
+            <text
+              x={toX + (toX > cx ? 12 : -12)}
+              y={toY + (toY > cy ? 14 : -6)}
+              textAnchor={toX > cx ? 'start' : 'end'}
+              fontSize={10}
+              fill="white"
+              style={{ userSelect: 'none', fontFamily: 'monospace' }}
+            >{angle}°</text>
+          </svg>
+          {/* From handle */}
+          <div
+            onPointerDown={(e) => startDrag('from', e)}
+            style={{
+              position: 'absolute',
+              left: fromX - 8,
+              top: fromY - 8,
+              width: 16,
+              height: 16,
+              borderRadius: 3,
+              background: fromColor,
+              border: '2px solid white',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+              cursor: 'grab',
+            }}
+          />
+          {/* To handle */}
+          <div
+            onPointerDown={(e) => startDrag('to', e)}
+            style={{
+              position: 'absolute',
+              left: toX - 8,
+              top: toY - 8,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: toColor,
+              border: '2px solid white',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+              cursor: 'grab',
+            }}
+          />
+        </>
+      )}
+    </div>
+  )
+}
 
 function ComponentPreview({
   name,
@@ -4407,7 +4561,7 @@ function ComponentPreview({
           borderStyle: borderStyle as React.CSSProperties['borderStyle'],
           borderWidth: 2,
           borderColor: (props.borderColor as string) || vs.border,
-          backgroundColor: (props.bgColor as string) || vs.bg,
+          ...bgStyle((props.bgColor as string) || vs.bg),
           borderRadius: radius,
           color: (props.textColor as string) || vs.text,
           minWidth: 320,
@@ -4489,7 +4643,7 @@ function ComponentPreview({
         </AccordionItem>
       )
     })
-    const accordionSharedProps = { className: 'w-[340px]', style: { backgroundColor: bgColor, borderRadius: radius } }
+    const accordionSharedProps = { className: 'w-[340px]', style: { ...bgStyle(bgColor), borderRadius: radius } }
     return multiple ? (
       <Accordion type="multiple" defaultValue={['item-0']} {...accordionSharedProps}>
         {accordionItems}
@@ -4563,7 +4717,7 @@ function ComponentPreview({
         {avType === 'image' && (
           <AvatarImage src={(props.imageUrl as string) ?? 'https://github.com/shadcn.png'} alt="Avatar" />
         )}
-        <AvatarFallback className={shapeClass} style={{ backgroundColor: (props.bgColor as string) ?? CSS_PRIMARY, color: (props.textColor as string) ?? CSS_PRIMARY_FG }}>
+        <AvatarFallback className={shapeClass} style={{ ...bgStyle((props.bgColor as string) ?? CSS_PRIMARY), color: (props.textColor as string) ?? CSS_PRIMARY_FG }}>
           {avType === 'icon' && AvatarFallbackIcon
             ? <AvatarFallbackIcon size={iconSize} />
             : ((props.fallback as string) ?? 'AB')
@@ -4596,7 +4750,7 @@ function ComponentPreview({
         variant={shadcnBadgeVariant}
         className={badgeVariantClass[badgeVariant]}
         style={{
-          backgroundColor: (props.bgColor as string) || undefined,
+          ...bgStyle((props.bgColor as string) || undefined),
           color: (props.textColor as string) || undefined,
           borderRadius: radius,
           height: `${sizePreset.height}px`,
@@ -4631,7 +4785,7 @@ function ComponentPreview({
         disabled={(props.disabled as boolean) ?? false}
         className={props.fullWidth ? 'w-full' : ''}
         style={{
-          backgroundColor: (props.bgColor as string) || undefined,
+          ...bgStyle((props.bgColor as string) || undefined),
           color: (props.textColor as string) || undefined,
           borderColor: (props.borderColor as string) || undefined,
           borderRadius: radius,
@@ -4692,7 +4846,7 @@ function ComponentPreview({
       <Card
         className="w-[320px]"
         style={{
-          backgroundColor: (props.bgColor as string) ?? 'var(--card)',
+          ...bgStyle((props.bgColor as string) ?? 'var(--card)'),
           borderColor: (props.borderColor as string) ?? 'var(--border)',
           borderRadius: radius,
           boxShadow: shadowValue(props.shadow as string | undefined),
@@ -4766,7 +4920,7 @@ function ComponentPreview({
           side={dmSide}
           align={dmAlign}
           style={{
-            backgroundColor: (props.bgColor as string) || undefined,
+            ...bgStyle((props.bgColor as string) || undefined),
             color: (props.textColor as string) || undefined,
             borderRadius: radius,
           }}
@@ -4830,7 +4984,7 @@ function ComponentPreview({
               borderBottom: `1px solid ${borderColor}`,
               borderLeft:   slotStyle === 'underline' || !isFirst ? 'none' : `1px solid ${borderColor}`,
               borderRight:  slotStyle === 'underline' ? 'none' : `1px solid ${borderColor}`,
-              backgroundColor: bgColor, color: textColor,
+              ...bgStyle(bgColor), color: textColor,
               opacity: disabled ? 0.5 : 1,
             }}
           >
@@ -4862,7 +5016,7 @@ function ComponentPreview({
           disabled={(props.disabled as boolean) ?? false}
           className={cn('w-[280px]', hasError && 'border-destructive')}
           style={{
-            backgroundColor: (props.bgColor as string) ?? 'var(--background)',
+            ...bgStyle((props.bgColor as string) ?? 'var(--background)'),
             color: (props.textColor as string) ?? 'var(--foreground)',
             borderColor: hasError ? undefined : (props.borderColor as string) || undefined,
             borderRadius: radius,
@@ -4893,7 +5047,7 @@ function ComponentPreview({
     const keys = [key1, key2, key3].filter(Boolean)
     const padding = props.padding as PaddingValue | undefined
     const kbdStyle: React.CSSProperties = {
-      ...(props.bgColor   ? { backgroundColor: props.bgColor as string } : {}),
+      ...bgStyle(props.bgColor as string),
       ...(props.textColor ? { color: props.textColor as string } : {}),
       ...(props.borderColor ? { borderColor: props.borderColor as string } : {}),
       borderRadius: radius,
@@ -5105,7 +5259,7 @@ function ComponentPreview({
             className={sizeClass}
             style={{
               width: `${selectWidth}px`,
-              backgroundColor: (props.bgColor as string) || undefined,
+              ...bgStyle((props.bgColor as string) || undefined),
               borderColor: (props.borderColor as string) || undefined,
               color: (props.textColor as string) || undefined,
               borderRadius: selectRadius,
@@ -5533,7 +5687,7 @@ function ComponentPreview({
           <TooltipContent
             side={tooltipSide}
             style={{
-              backgroundColor: (props.bgColor as string) || undefined,
+              ...bgStyle((props.bgColor as string) || undefined),
               color: (props.textColor as string) || undefined,
               borderRadius: tooltipRadius,
             }}
@@ -5739,7 +5893,7 @@ function ComponentPreview({
     const isHorizontal = barLayout === 'horizontal'
     return (
       <div className="flex items-center justify-center w-full">
-        <div className="w-[520px] max-w-full h-[260px] rounded-lg overflow-hidden" style={{ backgroundColor: bgColor }}>
+        <div className="w-[520px] max-w-full h-[260px] rounded-lg overflow-hidden" style={{ ...bgStyle(bgColor) }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={barData} layout={isHorizontal ? 'vertical' : 'horizontal'}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />}
@@ -6386,6 +6540,7 @@ export default function Editor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [previewMode, setPreviewMode] = useState<'single' | 'variants' | 'states'>('single')
   const [zoomLevel, setZoomLevel] = useState(100)
+  const [showGradientHandles, setShowGradientHandles] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
@@ -6542,7 +6697,25 @@ export default function Editor() {
   useEffect(() => {
     setPreviewMode('single')
     setZoomLevel(100)
+    setShowGradientHandles(false)
   }, [selectedComponent])
+
+  // Show gradient handles when bgColor becomes a gradient, hide when it's not
+  const bgIsGradient = typeof currentProps.bgColor === 'string' && currentProps.bgColor.startsWith('linear-gradient')
+  useEffect(() => {
+    if (bgIsGradient) setShowGradientHandles(true)
+    else setShowGradientHandles(false)
+  }, [bgIsGradient])
+
+  // Escape key hides gradient handles
+  useEffect(() => {
+    if (!showGradientHandles) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowGradientHandles(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showGradientHandles])
 
   const ZOOM_STEPS = [75, 100, 125, 150]
   const zoomIn  = () => setZoomLevel(z => ZOOM_STEPS[Math.min(ZOOM_STEPS.indexOf(z) + 1, ZOOM_STEPS.length - 1)] ?? z)
@@ -6809,7 +6982,9 @@ export default function Editor() {
           </aside>
 
           {/* ── Canvas ── */}
-          <main className={cn(
+          <main
+            onPointerDown={() => setShowGradientHandles(false)}
+            className={cn(
             'flex-1 relative bg-background',
             previewMode === 'variants' || previewMode === 'states'
               ? 'overflow-y-auto'
@@ -6884,12 +7059,26 @@ export default function Editor() {
                       globalRadius={projectSettings.globalRadius}
                     />
                   ) : (
-                    <ComponentPreview
-                      name={selectedComponent}
-                      props={currentProps}
-                      updateProp={updateProp}
-                      globalRadius={projectSettings.globalRadius}
-                    />
+                    <div
+                      className="relative inline-flex items-center justify-center"
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        if (bgIsGradient) setShowGradientHandles(true)
+                      }}
+                    >
+                      <ComponentPreview
+                        name={selectedComponent}
+                        props={currentProps}
+                        updateProp={updateProp}
+                        globalRadius={projectSettings.globalRadius}
+                      />
+                      {showGradientHandles && bgIsGradient && (
+                        <GradientHandleOverlay
+                          gradient={currentProps.bgColor as string}
+                          onUpdate={(g) => updateProp('bgColor', g)}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

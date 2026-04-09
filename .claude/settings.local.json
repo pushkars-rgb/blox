@@ -31,7 +31,8 @@
       "Bash(npx shadcn@latest add pagination --yes)",
       "Bash(grep -n \"component === ''Spinner''\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
       "Bash(grep -n \"if \\(name === ''Button''\\)\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
-      "Bash(grep -n \"function Inspector\\\\|if \\(component === ''Input OTP''\\)\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)"
+      "Bash(grep -n \"function Inspector\\\\|if \\(component === ''Input OTP''\\)\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
+      "Bash(npx vite:*)"
     ]
   }
 }
