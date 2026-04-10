@@ -127,6 +127,7 @@ type UpdateProp = (key: string, value: ComponentPropsValue) => void
 // for one variant (e.g. 'destructive') don't bleed into another (e.g. 'default').
 const VARIANT_SCOPED_PROPS = new Set([
   'bgColor', 'textColor', 'borderColor',
+  'descriptionColor',
   'triggerColor', 'contentColor',
   'trackColor', 'labelColor',
   'activeBgColor', 'activeTextColor',
@@ -275,12 +276,12 @@ type StateEntry = { label: string; propsOverride: Partial<ComponentProps> }
 
 const COMPONENT_STATES: Record<string, StateEntry[]> = {
   Button: [
-    { label: 'Default',  propsOverride: {} },
-    { label: 'Disabled', propsOverride: { disabled: true } },
-    { label: 'Loading',  propsOverride: { loading: true } },
+    { label: 'Default',     propsOverride: { variant: 'default' } },
+    { label: 'Disabled',    propsOverride: { variant: 'default', disabled: true } },
+    { label: 'Loading',     propsOverride: { variant: 'default', loading: true } },
     { label: 'Destructive', propsOverride: { variant: 'destructive' } },
-    { label: 'Ghost',    propsOverride: { variant: 'ghost' } },
-    { label: 'Outline',  propsOverride: { variant: 'outline' } },
+    { label: 'Ghost',       propsOverride: { variant: 'ghost' } },
+    { label: 'Outline',     propsOverride: { variant: 'outline' } },
   ],
   Badge: [
     { label: 'Default',     propsOverride: { variant: 'default' } },
@@ -851,18 +852,18 @@ const BUTTON_VARIANT_COLORS: Record<string, { bg: string; text: string; border: 
   ghost:       { bg: 'transparent',        text: 'var(--foreground)',             border: 'transparent' },
   link:        { bg: 'transparent',        text: 'var(--primary)',                border: 'transparent' },
 }
-const BADGE_VARIANT_COLORS: Record<string, { bg: string; text: string }> = {
-  default:     { bg: 'var(--primary)',     text: 'var(--primary-foreground)' },
-  secondary:   { bg: 'var(--secondary)',   text: 'var(--secondary-foreground)' },
-  destructive: { bg: 'var(--destructive)', text: 'var(--destructive-foreground)' },
-  outline:     { bg: 'transparent',        text: 'var(--foreground)' },
-  success:     { bg: '#dcfce7',            text: '#166534' },
-  warning:     { bg: '#fef3c7',            text: '#92400e' },
-  info:        { bg: '#dbeafe',            text: '#1e40af' },
+const BADGE_VARIANT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  default:     { bg: 'var(--primary)',     text: 'var(--primary-foreground)', border: 'transparent' },
+  secondary:   { bg: 'var(--secondary)',   text: 'var(--secondary-foreground)', border: 'transparent' },
+  destructive: { bg: 'var(--destructive)', text: 'var(--destructive-foreground)', border: 'transparent' },
+  outline:     { bg: 'transparent',        text: 'var(--foreground)',         border: 'var(--border)' },
+  success:     { bg: '#dcfce7',            text: '#166534',                   border: '#bbf7d0' },
+  warning:     { bg: '#fef3c7',            text: '#92400e',                   border: '#fde68a' },
+  info:        { bg: '#dbeafe',            text: '#1e40af',                   border: '#bfdbfe' },
 }
-const ALERT_VARIANT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  default:     { bg: 'var(--background)',  text: 'var(--foreground)',  border: 'var(--border)' },
-  destructive: { bg: 'transparent',        text: 'var(--destructive)', border: 'var(--destructive)' },
+const ALERT_VARIANT_COLORS: Record<string, { bg: string; text: string; border: string; desc: string }> = {
+  default:     { bg: 'var(--background)',  text: 'var(--foreground)',  border: 'var(--border)',       desc: 'var(--muted-foreground)' },
+  destructive: { bg: 'transparent',        text: 'var(--destructive)', border: 'var(--destructive)', desc: 'var(--destructive)' },
 }
 const ACCORDION_VARIANT_COLORS: Record<string, { bg: string; trigger: string; content: string; border: string }> = {
   default:   { bg: 'transparent', trigger: 'var(--foreground)', content: 'var(--muted-foreground)', border: 'var(--border)' },
@@ -1364,6 +1365,13 @@ function BadgeSections({ props, updateProp, paletteColors, primaryColor: _primar
           onChange={(v) => updateProp('textColor', v)}
           paletteColors={paletteColors}
         />
+        <TokenColorControl
+          label="Border"
+          value={(props.borderColor as string) ?? ''}
+          defaultColor={vc.border}
+          onChange={(v) => updateProp('borderColor', v)}
+          paletteColors={paletteColors}
+        />
         </>) })()}
         <div className="flex items-center justify-between px-4 py-2">
           <span className="text-xs text-muted-foreground">Stroke width</span>
@@ -1601,6 +1609,20 @@ function InputOTPSections({ props, updateProp, paletteColors, globalRadius, onCh
           <span className="text-xs text-muted-foreground">Mask characters</span>
           <Switch checked={(props.mask as boolean) ?? false} onCheckedChange={(v) => updateProp('mask', v)} />
         </div>
+        <div className="flex items-center justify-between px-4 py-2">
+          <span className="text-xs text-muted-foreground">Error state</span>
+          <Switch checked={(props.errorState as boolean) ?? false} onCheckedChange={(v) => updateProp('errorState', v)} />
+        </div>
+        {(props.errorState as boolean) && (
+          <div className="px-4 pt-1 pb-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Error message</p>
+            <Input
+              value={(props.errorMessage as string) ?? 'Invalid verification code.'}
+              onChange={(e) => updateProp('errorMessage', e.target.value)}
+              className="h-7 text-xs rounded-md"
+            />
+          </div>
+        )}
       </InspectorSection>
 
       <InspectorSection title="Border Radius">
@@ -1957,6 +1979,7 @@ function AlertSections({ props, updateProp, paletteColors, globalRadius, onChang
         <TokenColorControl label="Background" value={(props.bgColor as string) ?? ''} defaultColor={vc.bg} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
         <TokenColorControl label="Text color" value={(props.textColor as string) ?? ''} defaultColor={vc.text} onChange={(v) => updateProp('textColor', v)} paletteColors={paletteColors} />
         <TokenColorControl label="Border color" value={(props.borderColor as string) ?? ''} defaultColor={vc.border} onChange={(v) => updateProp('borderColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Description" value={(props.descriptionColor as string) ?? ''} defaultColor={vc.desc} onChange={(v) => updateProp('descriptionColor', v)} paletteColors={paletteColors} />
         </>) })()}
       </InspectorSection>
 
@@ -3813,12 +3836,12 @@ function BarChartSections({ props, updateProp, paletteColors, primaryColor, glob
         )}
       </InspectorSection>
       <InspectorSection title="Colors">
-        <ColorControl label="Bar color" value={(props.barColor as string) ?? primaryColor} onChange={(v) => updateProp('barColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Bar color" value={(props.barColor as string) ?? ''} defaultColor="var(--primary)" onChange={(v) => updateProp('barColor', v)} paletteColors={paletteColors} />
         {showSecondSeries && (
-          <ColorControl label="Bar 2 color" value={(props.bar2Color as string) ?? ''} onChange={(v) => updateProp('bar2Color', v)} paletteColors={paletteColors} />
+          <TokenColorControl label="Bar 2 color" value={(props.bar2Color as string) ?? ''} defaultColor="#94a3b8" onChange={(v) => updateProp('bar2Color', v)} paletteColors={paletteColors} />
         )}
-        <ColorControl label="Grid color" value={(props.gridColor as string) ?? ''} onChange={(v) => updateProp('gridColor', v)} paletteColors={paletteColors} />
-        <ColorControl label="Background" value={(props.bgColor as string) ?? ''} onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Grid color" value={(props.gridColor as string) ?? ''} defaultColor="var(--border)" onChange={(v) => updateProp('gridColor', v)} paletteColors={paletteColors} />
+        <TokenColorControl label="Background" value={(props.bgColor as string) ?? ''} defaultColor="transparent" onChange={(v) => updateProp('bgColor', v)} paletteColors={paletteColors} />
       </InspectorSection>
     </>
   )
@@ -4674,6 +4697,7 @@ function ComponentPreview({
     const alertBgColor = props.bgColor as string | undefined
     const alertTextColor = props.textColor as string | undefined
     const alertBorderColor = props.borderColor as string | undefined
+    const alertDescColor = props.descriptionColor as string | undefined
     const colorStyle: React.CSSProperties = {
       borderRadius: radius,
       ...(alertBgColor ? { backgroundColor: alertBgColor } : {}),
@@ -4688,7 +4712,7 @@ function ComponentPreview({
       >
         {LeadingIcon && <LeadingIcon className="h-4 w-4" />}
         <AlertTitle>{(props.title as string) ?? 'Heads up!'}</AlertTitle>
-        <AlertDescription>{(props.description as string) ?? 'You can add components to your app using the CLI.'}</AlertDescription>
+        <AlertDescription style={alertDescColor ? { color: alertDescColor } : undefined}>{(props.description as string) ?? 'You can add components to your app using the CLI.'}</AlertDescription>
         {TrailingIcon && (
           <div className="absolute right-4 top-4">
             <TrailingIcon className="h-4 w-4 opacity-50" />
@@ -4745,6 +4769,8 @@ function ComponentPreview({
     }
     type ShadcnBadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
     const shadcnBadgeVariant: ShadcnBadgeVariant = ['success', 'warning', 'info'].includes(badgeVariant) ? 'outline' : badgeVariant as ShadcnBadgeVariant
+    const badgeStrokeWidth = (props.strokeWidth as number) ?? 1
+    const badgeBorderColor = (props.borderColor as string) || undefined
     return (
       <Badge
         variant={shadcnBadgeVariant}
@@ -4753,6 +4779,9 @@ function ComponentPreview({
           ...bgStyle((props.bgColor as string) || undefined),
           color: (props.textColor as string) || undefined,
           borderRadius: radius,
+          borderWidth: `${badgeStrokeWidth}px`,
+          borderStyle: badgeStrokeWidth > 0 ? 'solid' : 'none',
+          ...(badgeBorderColor ? { borderColor: badgeBorderColor } : {}),
           height: `${sizePreset.height}px`,
           fontSize: `${(props.fontSize as number) ?? sizePreset.fontSize}px`,
           fontWeight: props.fontWeight as string | undefined,
@@ -4951,6 +4980,7 @@ function ComponentPreview({
     const slotSize = (props.slotSize as string) ?? 'md'
     const mask = (props.mask as boolean) ?? false
     const disabled = (props.disabled as boolean) ?? false
+    const hasError = (props.errorState as boolean) ?? false
     const rawValue = (props.previewValue as string) ?? ''
     const value = mask ? rawValue.replace(/./g, '●') : rawValue
     const half = Math.floor(length / 2)
@@ -4959,7 +4989,7 @@ function ComponentPreview({
     const slotFontSize: Record<string, string> = { sm: '11px', md: '14px', lg: '18px' }
     const dim = slotDim[slotSize] ?? slotDim.md
     const fontSize = slotFontSize[slotSize] ?? slotFontSize.md
-    const borderColor = (props.slotBorder as string) || 'var(--input)'
+    const borderColor = hasError ? 'var(--destructive)' : ((props.slotBorder as string) || 'var(--input)')
     const bgColor = slotStyle === 'filled' ? ((props.slotBg as string) || 'var(--muted)') : ((props.slotBg as string) || 'transparent')
     const textColor = (props.textColor as string) || 'var(--foreground)'
 
@@ -4986,6 +5016,7 @@ function ComponentPreview({
               borderRight:  slotStyle === 'underline' ? 'none' : `1px solid ${borderColor}`,
               ...bgStyle(bgColor), color: textColor,
               opacity: disabled ? 0.5 : 1,
+              ...(hasError ? { boxShadow: '0 0 0 3px oklch(from var(--destructive) l c h / 0.2)' } : {}),
             }}
           >
             {char || <div style={{ width: '1px', height: '1em', backgroundColor: 'currentColor', opacity: 0.2 }} />}
@@ -4994,13 +5025,20 @@ function ComponentPreview({
       })
 
     return (
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ display: 'flex' }}>{renderSlots(grouped ? half : length, 0)}</div>
-        {grouped && (
-          <>
-            <span style={{ padding: '0 6px', color: 'var(--muted-foreground)', fontSize: '18px', lineHeight: 1 }}>—</span>
-            <div style={{ display: 'flex' }}>{renderSlots(length - half, half)}</div>
-          </>
+      <div className="flex flex-col gap-1.5">
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex' }}>{renderSlots(grouped ? half : length, 0)}</div>
+          {grouped && (
+            <>
+              <span style={{ padding: '0 6px', color: 'var(--muted-foreground)', fontSize: '18px', lineHeight: 1 }}>—</span>
+              <div style={{ display: 'flex' }}>{renderSlots(length - half, half)}</div>
+            </>
+          )}
+        </div>
+        {hasError && (
+          <p className="text-xs text-destructive flex items-center gap-1">
+            {(props.errorMessage as string) ?? 'Invalid verification code.'}
+          </p>
         )}
       </div>
     )
@@ -5014,7 +5052,8 @@ function ComponentPreview({
         <Input
           placeholder={(props.placeholder as string) ?? 'Enter text...'}
           disabled={(props.disabled as boolean) ?? false}
-          className={cn('w-[280px]', hasError && 'border-destructive')}
+          aria-invalid={hasError || undefined}
+          className={cn('w-[280px]', hasError && 'border-destructive ring-3 ring-destructive/20')}
           style={{
             ...bgStyle((props.bgColor as string) ?? 'var(--background)'),
             color: (props.textColor as string) ?? 'var(--foreground)',
@@ -6147,11 +6186,11 @@ function ColorsPanel({
 
 function VariantsPreview({
   name,
-  props,
+  rawProps,
   globalRadius,
 }: {
   name: string
-  props: ComponentProps
+  rawProps: ComponentProps
   globalRadius: number
 }) {
   const config = COMPONENT_VARIANTS[name]
@@ -6162,21 +6201,28 @@ function VariantsPreview({
   // Noop: variant previews must not mutate inspector state
   const noop: UpdateProp = () => {}
 
+  const variantBuckets = (rawProps._variantProps as Record<string, ComponentProps> | undefined) ?? {}
+
   return (
     <div className="flex flex-wrap gap-10 justify-center p-10 w-full">
-      {config.values.map((value) => (
-        <div key={String(value)} className="flex flex-col items-center gap-3">
-          <span className="text-[11px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
-            {String(value)}
-          </span>
-          <ComponentPreview
-            name={name}
-            props={{ ...props, [config.prop]: value }}
-            updateProp={noop}
-            globalRadius={globalRadius}
-          />
-        </div>
-      ))}
+      {config.values.map((value) => {
+        // Merge global props + this variant's scoped overrides
+        const bucket = variantBuckets[String(value)] ?? {}
+        const merged = { ...rawProps, ...bucket, [config.prop]: value }
+        return (
+          <div key={String(value)} className="flex flex-col items-center gap-3">
+            <span className="text-[11px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+              {String(value)}
+            </span>
+            <ComponentPreview
+              name={name}
+              props={merged}
+              updateProp={noop}
+              globalRadius={globalRadius}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -6185,31 +6231,38 @@ function VariantsPreview({
 
 function StatesPreview({
   name,
-  props,
+  rawProps,
   globalRadius,
 }: {
   name: string
-  props: ComponentProps
+  rawProps: ComponentProps
   globalRadius: number
 }) {
   const states = COMPONENT_STATES[name]
   if (!states) return null
   const noop: UpdateProp = () => {}
+  const variantBuckets = (rawProps._variantProps as Record<string, ComponentProps> | undefined) ?? {}
   return (
     <div className="flex flex-wrap gap-10 justify-center p-10 w-full">
-      {states.map((state) => (
-        <div key={state.label} className="flex flex-col items-center gap-3">
-          <span className="text-[11px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
-            {state.label}
-          </span>
-          <ComponentPreview
-            name={name}
-            props={{ ...props, ...state.propsOverride }}
-            updateProp={noop}
-            globalRadius={globalRadius}
-          />
-        </div>
-      ))}
+      {states.map((state) => {
+        // Determine the variant for this state entry
+        const stateVariant = (state.propsOverride.variant as string) ?? (rawProps.variant as string) ?? 'default'
+        const bucket = variantBuckets[stateVariant] ?? {}
+        const merged = { ...rawProps, ...bucket, ...state.propsOverride }
+        return (
+          <div key={state.label} className="flex flex-col items-center gap-3">
+            <span className="text-[11px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+              {state.label}
+            </span>
+            <ComponentPreview
+              name={name}
+              props={merged}
+              updateProp={noop}
+              globalRadius={globalRadius}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -7049,13 +7102,13 @@ export default function Editor() {
                   {previewMode === 'variants' && COMPONENT_VARIANTS[selectedComponent] ? (
                     <VariantsPreview
                       name={selectedComponent}
-                      props={currentProps}
+                      rawProps={allComponentProps[selectedComponent] ?? {}}
                       globalRadius={projectSettings.globalRadius}
                     />
                   ) : previewMode === 'states' && COMPONENT_STATES[selectedComponent] ? (
                     <StatesPreview
                       name={selectedComponent}
-                      props={currentProps}
+                      rawProps={allComponentProps[selectedComponent] ?? {}}
                       globalRadius={projectSettings.globalRadius}
                     />
                   ) : (

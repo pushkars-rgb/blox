@@ -32,7 +32,9 @@
       "Bash(grep -n \"component === ''Spinner''\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
       "Bash(grep -n \"if \\(name === ''Button''\\)\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
       "Bash(grep -n \"function Inspector\\\\|if \\(component === ''Input OTP''\\)\" /Users/bsf/Downloads/BSF/Blox/src/pages/Editor.tsx)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(git -C /Users/bsf/Downloads/BSF/Blox diff --stat)",
+      "Bash(git -C /Users/bsf/Downloads/BSF/Blox diff -- src/pages/Editor.tsx)"
     ]
   }
 }
