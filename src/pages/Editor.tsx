@@ -3788,7 +3788,7 @@ function SidebarComponentSections({ props, updateProp, paletteColors, primaryCol
   )
 }
 
-function BarChartSections({ props, updateProp, paletteColors, primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
+function BarChartSections({ props, updateProp, paletteColors, primaryColor: _primaryColor, globalRadius, onChangeGlobalRadius }: InspectorSharedProps) {
   const showSecondSeries = (props.showSecondSeries as boolean) ?? false
   return (
     <>
